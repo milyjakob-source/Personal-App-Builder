@@ -48,19 +48,26 @@ export type Buchung = {
   /** Betrag in Cent, Ausgaben negativ */
   betrag: number;
   kategorie: string;
+  /** Detailzeilen aus dem Auszug */
+  info?: string;
+  /** Von Hand in MILI eingetragen */
+  manuell?: boolean;
 };
 
 export type GeplanteAusgabe = { id: string; titel: string; betrag: number; datum: string; erledigt?: boolean };
 
 export type Frist = { id: string; titel: string; datum: string; notiz?: string; link?: string; erledigt?: boolean };
 
-export type Schicht = { id: string; start: string; ende: string; notiz?: string };
+/** nurStunden: nur die Anzahl Stunden eingetragen, ohne Uhrzeiten */
+export type Schicht = { id: string; start: string; ende: string; notiz?: string; nurStunden?: number };
 
 export type Job = {
   aktiv: boolean;
   name: string;
   /** Stundenlohn in Cent */
   stundenlohn: number;
+  /** Geplante Stunden pro Woche, für die Hochrechnung */
+  stundenProWoche?: number;
   schichten: Schicht[];
 };
 
@@ -77,6 +84,12 @@ export type Einstellungen = {
   kategorieRegeln: Record<string, string>;
   /** Gelernte Zuordnung Termin-Titel → Bereich */
   bereichRegeln?: Record<string, import('./lib/bereiche').Bereich>;
+  /** Von Hand als Abo markiert (true) oder ausgeschlossen (false), pro Händler */
+  aboRegeln?: Record<string, boolean>;
+  /** Regelmäßige Einnahmen pro Monat, z. B. Kindergeld */
+  einnahmen?: { id: string; titel: string; betrag: number }[];
+  /** Stand der Kategorien-Regeln, für das automatische Neu-Einordnen */
+  kategorienVersion?: number;
   checkliste: Record<string, boolean>;
 };
 

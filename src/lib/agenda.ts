@@ -16,6 +16,8 @@ export type Eintrag = {
   bereich?: Bereich;
   /** Titel klingt nach Einkaufen → Einkaufsliste anbieten */
   einkauf?: boolean;
+  /** Dauer in Minuten, wenn keine Uhrzeit bekannt ist (Schicht nur mit Stunden) */
+  dauer?: number;
 };
 
 export function tagesEintraege(d: Daten, tag: Date): Eintrag[] {
@@ -44,7 +46,18 @@ export function tagesEintraege(d: Daten, tag: Date): Eintrag[] {
   if (d.job.aktiv) {
     for (const s of d.job.schichten) {
       if (s.start.slice(0, 10) !== key) continue;
-      out.push({ key: `s-${s.id}`, art: 'job', titel: d.job.name || 'Arbeit', zeit: uhrzeit(s.start), bis: uhrzeit(s.ende), neben: s.notiz, id: s.id, bereich: 'arbeit' });
+      const nur = s.nurStunden !== undefined;
+      out.push({
+        key: `s-${s.id}`,
+        art: 'job',
+        titel: d.job.name || 'Arbeit',
+        zeit: nur ? undefined : uhrzeit(s.start),
+        bis: nur ? undefined : uhrzeit(s.ende),
+        neben: [nur ? `${String(s.nurStunden).replace('.', ',')} Std.` : undefined, s.notiz].filter(Boolean).join(' · ') || undefined,
+        id: s.id,
+        bereich: 'arbeit',
+        dauer: nur ? Math.round(s.nurStunden! * 60) : undefined,
+      });
     }
   }
 
@@ -111,7 +124,8 @@ export function wochenBilanz(d: Daten, ab = new Date()) {
       if (!e.bereich) continue;
       const x = summe.get(e.bereich) ?? { minuten: 0, anzahl: 0 };
       x.anzahl++;
-      if (e.zeit) {
+      if (e.dauer) x.minuten += e.dauer;
+      else if (e.zeit) {
         const von = +e.zeit.slice(0, 2) * 60 + +e.zeit.slice(3, 5);
         const bis = e.bis ? +e.bis.slice(0, 2) * 60 + +e.bis.slice(3, 5) : von + 60;
         x.minuten += bis > von ? bis - von : bis + 24 * 60 - von;

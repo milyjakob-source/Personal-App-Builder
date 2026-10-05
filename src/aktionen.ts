@@ -154,9 +154,9 @@ export function buchungenImport(roh: (RohBuchung & { kategorie?: string })[]): {
         continue;
       }
       vorhanden.add(key);
-      const { datum, text, betrag } = r;
+      const { datum, text, betrag, info } = r;
       const kategorie = r.kategorie ?? mitKategorie(r, d.einstellungen.kategorieRegeln).kategorie;
-      d.buchungen.push({ id: neueId(), datum, text, betrag, kategorie });
+      d.buchungen.push({ id: neueId(), datum, text, betrag, kategorie, ...(info ? { info } : {}) });
       neu++;
     }
     d.buchungen.sort((a, b) => b.datum.localeCompare(a.datum));
@@ -172,6 +172,31 @@ export function kategorieLernen(b: Buchung, kategorie: string) {
     for (const x of d.buchungen) {
       if (x.id === b.id || (key && haendlerKey(x.text) === key)) x.kategorie = kategorie;
     }
+  });
+}
+
+/** Abo von Hand markieren (true), ausschließen (false) oder wieder automatisch (undefined). */
+export function aboSetzen(key: string, abo: boolean | undefined) {
+  aendere((d) => {
+    const r = { ...(d.einstellungen.aboRegeln ?? {}) };
+    if (abo === undefined) delete r[key];
+    else r[key] = abo;
+    d.einstellungen.aboRegeln = r;
+  });
+}
+
+/** Eigene Buchung, z. B. Bargeld-Einnahme oder Ausgabe, die nicht auf dem Konto steht. */
+export function buchungEintragen(b: { datum: string; text: string; betrag: number; kategorie: string }) {
+  aendere((d) => {
+    d.buchungen.push({ id: neueId(), ...b, manuell: true });
+    d.buchungen.sort((x, y) => y.datum.localeCompare(x.datum));
+  });
+}
+
+/** Gearbeitete Stunden an einem Tag eintragen (ohne Uhrzeiten). */
+export function stundenEintragen(tag: string, stunden: number) {
+  aendere((d) => {
+    d.job.schichten.push({ id: neueId(), start: `${tag}T00:00`, ende: `${tag}T00:00`, nurStunden: stunden });
   });
 }
 

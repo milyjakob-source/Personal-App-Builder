@@ -1,13 +1,13 @@
-import { Briefcase, Trash } from '@phosphor-icons/react';
+import { Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { kurzesDatum, lies, tagKey, tagName, uhrzeit } from '../lib/datum';
-import { euro } from '../lib/sparplan';
+import { stundenText, stundenVon } from '../lib/job';
 import { alsWann, findeZeit } from '../lib/zeit';
 import { aendere, neueId, useDaten } from '../store';
-import type { Schicht } from '../types';
+import { JobKarte } from '../ui/JobKarte';
 import { Blatt, Gruppe, Kopf, Leer, toast, useJetzt, Zeile } from '../ui/ui';
 
-const stunden = (s: Schicht) => (lies(s.ende).getTime() - lies(s.start).getTime()) / 3600000;
+const stunden = stundenVon;
 
 export function Job() {
   const d = useDaten();
@@ -20,24 +20,12 @@ export function Job() {
     return (
       <div className="seite">
         <Kopf titel="Job" zurueck="mehr" />
-        <div className="karte">
-          <Leer titel="Noch kein Job eingetragen">
-            Sobald du den Job hast, richtest du ihn hier ein. Deine Schichten erscheinen dann in Heute und Woche, dazu Stunden und Verdienst pro Monat.
-          </Leer>
-          <div style={{ padding: '0 16px 16px' }}>
-            <button className="knopf voll" onClick={() => setEinrichten(true)}>
-              <Briefcase size={18} /> Job einrichten
-            </button>
-          </div>
-        </div>
-        {einrichten && <JobBlatt onClose={() => setEinrichten(false)} />}
+        <JobKarte />
+        <p className="gruppe-fuss">Sobald du den Job hast: Stundenlohn eintragen, dann deine Stunden pro Tag. Schichten erscheinen in Heute und Woche, der Verdienst fließt in deinen Geld-Plan.</p>
       </div>
     );
   }
 
-  const monat = tagKey(jetzt).slice(0, 7);
-  const imMonat = d.job.schichten.filter((s) => s.start.startsWith(monat));
-  const h = imMonat.reduce((a, s) => a + stunden(s), 0);
   const kommend = d.job.schichten.filter((s) => s.ende >= tagKey(jetzt)).sort((a, b) => a.start.localeCompare(b.start));
 
   function schichtHinzu() {
@@ -56,12 +44,7 @@ export function Job() {
       <Kopf titel={d.job.name || 'Job'} zurueck="mehr" aktionen={<button className="knopf klein grau" onClick={() => setEinrichten(true)}>Bearbeiten</button>} />
 
       <Gruppe>
-        <div className="karte">
-          <div className="zahlen" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-            <div><div className="wert">{h.toLocaleString('de-DE', { maximumFractionDigits: 1 })} Std.</div><div className="was">diesen Monat</div></div>
-            <div><div className="wert plus">{euro(Math.round(h * d.job.stundenlohn))}</div><div className="was">brutto, geschätzt</div></div>
-          </div>
-        </div>
+        <JobKarte />
       </Gruppe>
 
       <Gruppe titel="Nächste Schichten" mehr={{ text: 'Dienstplan einfügen', onClick: () => setPlan(true) }}>
@@ -71,7 +54,7 @@ export function Job() {
             <Zeile
               key={s.id}
               titel={`${tagName(lies(s.start), jetzt)}, ${kurzesDatum(s.start)}`}
-              neben={`${uhrzeit(s.start)} bis ${uhrzeit(s.ende)} · ${stunden(s).toLocaleString('de-DE', { maximumFractionDigits: 1 })} Std.`}
+              neben={s.nurStunden !== undefined ? stundenText(s.nurStunden) : `${uhrzeit(s.start)} bis ${uhrzeit(s.ende)} · ${stundenText(stunden(s))}`}
               rechts={
                 <>
                   <button className="rund" aria-label="Löschen" onClick={() => aendere((x) => { x.job.schichten = x.job.schichten.filter((y) => y.id !== s.id); })}>

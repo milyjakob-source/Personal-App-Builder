@@ -32,10 +32,20 @@ export function monateMitDaten(buchungen: Buchung[]): string[] {
   return [...new Set(buchungen.map((b) => monatKey(b.datum)))].sort().reverse();
 }
 
-export type Abo = { name: string; betrag: number; monate: number };
+export type Abo = { name: string; betrag: number; monate: number; key: string; manuell?: boolean };
 
-/** Gleicher Händler in mindestens zwei Monaten mit ähnlichem Betrag. */
-export function findeAbos(buchungen: Buchung[]): Abo[] {
+/** Kategorien, die nie ein Abo sind, auch wenn man jede Woche gleich viel ausgibt. */
+const KEIN_ABO = [
+  'Lebensmittel', 'Essen & Trinken', 'Bar & Ausgehen', 'Zigaretten & Kiosk', 'Drogerie', 'Bargeld', 'Shopping', 'Mobilität',
+  // Miete, Handy, Versicherung und Überweisungen sind feste Kosten, aber keine Abos
+  'Wohnen & Handy', 'Versicherung & Gebühren', 'Überweisungen', 'Sparen',
+];
+
+/**
+ * Abos: gleicher Händler, fast exakt gleicher Betrag, mindestens dreimal im Monatsabstand (25 bis 35 Tage).
+ * Dazu alles, was als "Abos & Software" eingeordnet ist, und was du von Hand markiert hast.
+ */
+export function findeAbos(buchungen: Buchung[], regeln: Record<string, boolean> = {}): Abo[] {
   const gruppen = new Map<string, Buchung[]>();
   for (const b of buchungen) {
     if (b.betrag >= 0) continue;
@@ -44,25 +54,38 @@ export function findeAbos(buchungen: Buchung[]): Abo[] {
     gruppen.set(key, [...(gruppen.get(key) ?? []), b]);
   }
   const abos: Abo[] = [];
-  for (const liste of gruppen.values()) {
-    const monate = new Set(liste.map((b) => monatKey(b.datum)));
-    if (monate.size < 2) continue;
-    const betraege = liste.map((b) => -b.betrag);
-    const mittel = betraege.reduce((a, b) => a + b, 0) / betraege.length;
-    if (betraege.every((x) => Math.abs(x - mittel) <= mittel * 0.1 + 50) && liste.length <= monate.size + 1) {
-      abos.push({ name: liste[0].text.split(' · ')[0], betrag: Math.round(mittel), monate: monate.size });
+  for (const [key, liste] of gruppen) {
+    if (regeln[key] === false) continue;
+    const sortiert = [...liste].sort((a, b) => a.datum.localeCompare(b.datum));
+    const letzte = sortiert[sortiert.length - 1];
+    const name = letzte.text.split(' · ')[0];
+    const monate = new Set(liste.map((b) => monatKey(b.datum))).size;
+    if (regeln[key] === true || (letzte.kategorie === 'Abos & Software' && !regeln[key])) {
+      abos.push({ name, betrag: -letzte.betrag, monate, key, manuell: regeln[key] === true });
+      continue;
     }
+    if (sortiert.length < 3 || KEIN_ABO.includes(letzte.kategorie)) continue;
+    const betraege = sortiert.map((b) => -b.betrag);
+    const mittel = betraege.reduce((a, b) => a + b, 0) / betraege.length;
+    const gleicherBetrag = betraege.every((x) => Math.abs(x - mittel) <= mittel * 0.02 + 5);
+    const abstaende = sortiert.slice(1).map((b, i) => (lies(b.datum).getTime() - lies(sortiert[i].datum).getTime()) / 86400000);
+    const monatlich = abstaende.every((t) => (t >= 25 && t <= 35) || (t >= 55 && t <= 70));
+    if (gleicherBetrag && monatlich) abos.push({ name, betrag: Math.round(mittel), monate, key });
   }
   return abos.sort((a, b) => b.betrag - a.betrag);
 }
 
 export type Ruecklage = GeplanteAusgabe & { proMonat: number; monate: number };
 
+export type Budget = { kategorie: string; budget: number; ausgegeben: number; schnitt: number };
+
 export type Sparplan = {
   /** Anzahl der vollständigen Monate, aus denen gerechnet wurde */
   basisMonate: number;
   einkommen: number;
-  einkommenGeschaetzt: boolean;
+  /** Woher das Einkommen kommt: selbst festgelegt, aus Job und Einnahmen geplant oder aus Gutschriften geschätzt */
+  einkommenQuelle: 'fest' | 'geplant' | 'geschaetzt';
+  einkommenTeile: { name: string; betrag: number }[];
   fixkosten: number;
   variabel: number;
   ruecklagen: Ruecklage[];
@@ -71,6 +94,8 @@ export type Sparplan = {
   /** Was pro Monat für Alltag (Essen, Ausgehen, Shopping ...) bleibt */
   spielraum: number;
   proWoche: number;
+  /** Vorschlag, wie viel pro Kategorie im Monat drin ist, plus was im laufenden Monat schon weg ist */
+  budgets: Budget[];
   hinweise: string[];
 };
 
@@ -78,8 +103,9 @@ export type Sparplan = {
 export function sparplan(
   buchungen: Buchung[],
   geplant: GeplanteAusgabe[],
-  e: Pick<Einstellungen, 'einkommen' | 'sparquote'>,
+  e: Pick<Einstellungen, 'einkommen' | 'sparquote'> & Partial<Pick<Einstellungen, 'einnahmen' | 'aboRegeln'>>,
   jetzt = new Date(),
+  jobMonat = 0,
 ): Sparplan {
   const aktuell = monatKey(`${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, '0')}`);
   const volle = monateMitDaten(buchungen).filter((m) => m < aktuell).slice(0, 3);
@@ -88,8 +114,17 @@ export function sparplan(
   const n = Math.max(1, bilder.length);
   const schnitt = (f: (b: MonatsBild) => number) => Math.round(bilder.reduce((a, b) => a + f(b), 0) / n);
 
+  // Einkommen: selbst festgelegt > Job + regelmäßige Einnahmen > aus den Gutschriften geschätzt
+  const einnahmen = e.einnahmen ?? [];
+  const einkommenTeile = [
+    ...(jobMonat > 0 ? [{ name: 'Job (hochgerechnet)', betrag: jobMonat }] : []),
+    ...einnahmen.map((x) => ({ name: x.titel, betrag: x.betrag })),
+  ];
+  const geplantSumme = einkommenTeile.reduce((a, x) => a + x.betrag, 0);
   const geschaetzt = schnitt((b) => b.einnahmen);
-  const einkommen = e.einkommen > 0 ? e.einkommen : geschaetzt;
+  const einkommenQuelle = e.einkommen > 0 ? 'fest' : geplantSumme > 0 ? 'geplant' : 'geschaetzt';
+  const einkommen = e.einkommen > 0 ? e.einkommen : geplantSumme > 0 ? geplantSumme : geschaetzt;
+
   const fixkosten = schnitt((b) => b.kategorien.filter((k) => FIXKOSTEN.includes(k.name)).reduce((a, k) => a + k.summe, 0));
   const sparenIst = schnitt((b) => b.kategorien.find((k) => k.name === 'Sparen')?.summe ?? 0);
   const variabel = schnitt((b) => b.ausgaben) - fixkosten - sparenIst;
@@ -105,6 +140,25 @@ export function sparplan(
   const sparziel = Math.round((einkommen * e.sparquote) / 100);
   const spielraum = einkommen - fixkosten - ruecklagenSumme - sparziel;
 
+  // Budget pro Kategorie: der Spielraum, verteilt nach deinem bisherigen Anteil an den Alltagsausgaben
+  const alltag = new Map<string, number>();
+  for (const b of bilder) {
+    for (const k of b.kategorien) {
+      if (FIXKOSTEN.includes(k.name) || k.name === 'Sparen') continue;
+      alltag.set(k.name, (alltag.get(k.name) ?? 0) + k.summe / n);
+    }
+  }
+  const alltagSumme = [...alltag.values()].reduce((a, x) => a + x, 0);
+  const diesenMonat = monatsBild(buchungen, aktuell);
+  const budgets: Budget[] = [...alltag.entries()]
+    .map(([kategorie, s]) => ({
+      kategorie,
+      schnitt: Math.round(s),
+      budget: alltagSumme > 0 ? Math.round((Math.max(0, spielraum) * s) / alltagSumme) : 0,
+      ausgegeben: diesenMonat.kategorien.find((k) => k.name === kategorie)?.summe ?? 0,
+    }))
+    .sort((a, b) => b.budget - a.budget);
+
   const hinweise: string[] = [];
   if (!buchungen.length) {
     hinweise.push('Lade einen Kontoauszug hoch, dann rechnet MILI mit deinen echten Zahlen.');
@@ -114,10 +168,9 @@ export function sparplan(
     } else if (variabel > spielraum && spielraum > 0) {
       hinweise.push(`Du gibst im Schnitt ${euro(variabel - spielraum)} pro Monat mehr für Alltag aus, als dein Plan erlaubt.`);
     }
-    const abos = findeAbos(buchungen);
-    if (abos.length) {
-      const summe = abos.reduce((a, x) => a + x.betrag, 0);
-      hinweise.push(`${abos.length} wiederkehrende Abbuchungen erkannt, zusammen ${euro(summe)} im Monat. Lohnt sich jede davon noch?`);
+    const drueber = budgets.filter((b) => b.budget > 0 && b.ausgegeben > b.budget);
+    for (const b of drueber.slice(0, 2)) {
+      hinweise.push(`${b.kategorie}: diesen Monat schon ${euro(b.ausgegeben - b.budget)} über dem Budget.`);
     }
     const letzter = bilder[0];
     if (letzter && bilder.length > 1) {
@@ -130,13 +183,14 @@ export function sparplan(
         }
       }
     }
-    if (e.einkommen <= 0) hinweise.push('Einkommen ist aus deinen Gutschriften geschätzt. Du kannst es unten genau eintragen.');
+    if (einkommenQuelle === 'geschaetzt') hinweise.push('Einkommen ist aus deinen Gutschriften geschätzt. Trag unten deinen Job oder regelmäßige Einnahmen ein.');
   }
 
   return {
     basisMonate: bilder.length,
     einkommen,
-    einkommenGeschaetzt: e.einkommen <= 0,
+    einkommenQuelle,
+    einkommenTeile,
     fixkosten,
     variabel,
     ruecklagen,
@@ -144,6 +198,7 @@ export function sparplan(
     sparziel,
     spielraum,
     proWoche: Math.round(Math.max(0, spielraum) / 4.33),
+    budgets,
     hinweise,
   };
 }

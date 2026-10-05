@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { SRH_FRISTEN } from './data/studium';
+import { kategorisiere } from './lib/kategorien';
 import type { Daten } from './types';
 
 const DB = 'mili';
@@ -21,7 +22,7 @@ export function leer(): Daten {
     geplant: [],
     fristen: SRH_FRISTEN,
     job: { aktiv: false, name: '', stundenlohn: 0, schichten: [] },
-    einstellungen: { einkommen: 0, sparquote: 10, kurzbefehleAktiv: false, kategorieRegeln: {}, checkliste: {} },
+    einstellungen: { einkommen: 0, sparquote: 10, kurzbefehleAktiv: false, kategorieRegeln: {}, checkliste: {}, kategorienVersion: 2 },
   };
 }
 
@@ -38,6 +39,21 @@ function oeffne(): Promise<IDBDatabase> {
   });
 }
 
+const KATEGORIEN_VERSION = 2;
+const UMBENANNT: Record<string, string> = { Abos: 'Abos & Software', Wohnen: 'Wohnen & Handy' };
+
+/** Ältere Daten an neue Regeln anpassen: Buchungen mit den aktuellen Kategorien neu einordnen. */
+export function migriere(d: Daten): Daten {
+  if ((d.einstellungen.kategorienVersion ?? 1) >= KATEGORIEN_VERSION) return d;
+  const regeln: Record<string, string> = {};
+  for (const [k, v] of Object.entries(d.einstellungen.kategorieRegeln)) regeln[k] = UMBENANNT[v] ?? v;
+  return {
+    ...d,
+    buchungen: d.buchungen.map((b) => (b.manuell ? b : { ...b, kategorie: kategorisiere(`${b.text} ${b.info ?? ''}`, b.betrag, regeln) })),
+    einstellungen: { ...d.einstellungen, kategorieRegeln: regeln, kategorienVersion: KATEGORIEN_VERSION },
+  };
+}
+
 export async function lade(): Promise<void> {
   try {
     const db = await oeffne();
@@ -46,7 +62,11 @@ export async function lade(): Promise<void> {
       r.onsuccess = () => resolve(r.result as Daten | undefined);
       r.onerror = () => reject(r.error);
     });
-    if (wert) daten = { ...leer(), ...wert, einstellungen: { ...leer().einstellungen, ...wert.einstellungen } };
+    if (wert) {
+      const version = wert.einstellungen?.kategorienVersion;
+      daten = migriere({ ...leer(), ...wert, einstellungen: { ...leer().einstellungen, ...wert.einstellungen, kategorienVersion: version } });
+      if (version !== daten.einstellungen.kategorienVersion) speichere();
+    }
   } catch {
     // Ohne IndexedDB (z. B. privater Modus) läuft MILI nur für diese Sitzung.
   }
@@ -77,7 +97,7 @@ export function aendere(f: (d: Daten) => Daten | void) {
 }
 
 export function ersetze(neu: Daten) {
-  daten = { ...leer(), ...neu, einstellungen: { ...leer().einstellungen, ...neu.einstellungen } };
+  daten = migriere({ ...leer(), ...neu, einstellungen: { ...leer().einstellungen, ...neu.einstellungen, kategorienVersion: neu.einstellungen?.kategorienVersion } });
   hoerer.forEach((h) => h());
   speichere();
 }

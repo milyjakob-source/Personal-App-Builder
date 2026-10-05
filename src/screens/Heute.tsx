@@ -5,6 +5,7 @@ import { naechsteFristen, naechsteGeburtstage, tagesEintraege, ueberfaelligeAufg
 import { BEREICHE, istEinkauf } from '../lib/bereiche';
 import { langesDatum, lies, plusTage, startDesTages, tageBis, tagKey, WOCHENTAGE_KURZ } from '../lib/datum';
 import { useNews, wieAlt } from '../lib/news';
+import { jobBild } from '../lib/job';
 import { euro, sparplan } from '../lib/sparplan';
 import { useDaten } from '../store';
 import { EintragZeile, eintragFarbe, KalenderBanner, KalenderKnopf } from '../ui/Agenda';
@@ -259,7 +260,7 @@ function Widgets({ jetzt }: { jetzt: Date }) {
   const einkauf = d.einkauf.filter((e) => !e.erledigt);
   const frist = naechsteFristen(d, jetzt)[0];
   const geb = naechsteGeburtstage(d, 30, jetzt)[0];
-  const plan = d.buchungen.length ? sparplan(d.buchungen, d.geplant, d.einstellungen, jetzt) : undefined;
+  const plan = d.buchungen.length || d.job.aktiv ? sparplan(d.buchungen, d.geplant, d.einstellungen, jetzt, d.job.aktiv ? jobBild(d.job, jetzt).hochrechnung : 0) : undefined;
 
   const kopf = (icon: ReactNode, text: string) => (
     <div className="w-kopf">

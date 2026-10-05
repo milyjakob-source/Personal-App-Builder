@@ -2,9 +2,10 @@
 // 1. Volksbank/Raiffeisenbank-PDF (Atruvia): "01.10. 01.10. Basislastschrift   12,99 S", Details in den Folgezeilen.
 // 2. Alles andere (Screenshots aus der Banking-App, andere Banken): Zeilen mit Datum und Betrag.
 
-import { kategorisiere } from './kategorien';
+import { kategorisiere, ZAHLUNGSDIENSTE } from './kategorien';
 
-export type RohBuchung = { datum: string; text: string; betrag: number };
+/** info: alle Detailzeilen des Auszugs, damit die Kategorie auch den eigentlichen Händler sieht */
+export type RohBuchung = { datum: string; text: string; betrag: number; info?: string };
 
 const BETRAG_ZAHL = '\\d{1,3}(?:\\.\\d{3})*,\\d{2}';
 const VB_ZEILE = new RegExp(`^(\\d{2})\\.(\\d{2})\\.\\s+(\\d{2})\\.(\\d{2})\\.\\s+(.*?)\\s+(${BETRAG_ZAHL})\\s*([SH])\\s*$`);
@@ -46,7 +47,7 @@ export function leseVolksbank(text: string, jetzt = new Date()): RohBuchung[] {
       continue;
     }
     const letzte = out[out.length - 1];
-    if (letzte.details.length < 4 && !DETAIL_SKIP.test(z)) letzte.details.push(z);
+    if (letzte.details.length < 6 && !DETAIL_SKIP.test(z)) letzte.details.push(z);
   }
   // Auszug über den Jahreswechsel: Dezember-Buchungen gehören ins Vorjahr.
   const wechsel = out.some((b) => b.datum.slice(5, 7) === '12') && out.some((b) => b.datum.slice(5, 7) === '01');
@@ -54,13 +55,20 @@ export function leseVolksbank(text: string, jetzt = new Date()): RohBuchung[] {
     ...b,
     datum: wechsel && b.datum.slice(5, 7) === '12' ? `${jahr - 1}${b.datum.slice(4)}` : b.datum,
     text: buchungsText(vorgang, details),
+    ...(details.length ? { info: details.join(' ') } : {}),
   }));
 }
 
 function buchungsText(vorgang: string, details: string[]): string {
   const v = vorgang.replace(/\s*PN:\s*\d+/i, '').trim();
-  const haendler = details.find((d) => /\p{L}{3,}/u.test(d));
+  const mitText = details.filter((d) => /\p{L}{3,}/u.test(d));
+  let haendler = mitText[0];
   if (!haendler) return v;
+  // "PayPal Europe ..." → eigentlicher Händler aus der nächsten Zeile ("Ihr Einkauf bei Vinted")
+  if (ZAHLUNGSDIENSTE.test(haendler)) {
+    const echt = mitText.slice(1).find((d) => !ZAHLUNGSDIENSTE.test(d) && !/^\d|^pp\.|^\.?\d{4}/i.test(d));
+    if (echt) haendler = echt.replace(/^(?:ihr einkauf bei|einkauf bei|zahlung an|bestellung bei)\s+/i, '');
+  }
   return `${aufraeumen(haendler)} · ${v}`;
 }
 
@@ -142,7 +150,7 @@ export function leseAuszug(text: string, jetzt = new Date()): RohBuchung[] {
 }
 
 export function mitKategorie(b: RohBuchung, gelernt: Record<string, string>) {
-  return { ...b, kategorie: kategorisiere(b.text, b.betrag, gelernt) };
+  return { ...b, kategorie: kategorisiere(`${b.text} ${b.info ?? ''}`, b.betrag, gelernt) };
 }
 
 /** Schlüssel gegen doppelten Import desselben Auszugs. */

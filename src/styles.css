@@ -633,3 +633,31 @@ input[type='date'].feld, input[type='datetime-local'].feld, input[type='time'].f
 .hero .zaehler .hero-einkauf { background: #fff; color: #c46f00; display: inline-flex; align-items: center; gap: 5px; }
 
 .toast .ok.fehler { background: var(--rot); }
+
+/* --- Geld: Rot für Ausgaben, Grün für Einnahmen ------------------------------ */
+.betrag { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; color: var(--text); }
+.betrag.rein { color: var(--gruen); }
+.betrag.raus { color: var(--rot); }
+.betrag.gross { font-family: var(--font-rund); font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+.monat-wahl { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 12px; }
+.rein-raus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; padding: 16px; margin-bottom: 26px; }
+.rein-raus .was { font-size: 13px; color: var(--text-2); font-weight: 600; }
+.rein-raus .bilanz-zeile { grid-column: span 2; border-top: 0.5px solid var(--sep); padding-top: 10px; margin-top: 6px; }
+.bilanz-zeile { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; }
+.kat-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.kat-kopf .titel { font-size: 16px; }
+.budget-spur { height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; margin-top: 7px; }
+.budget-fuellung { height: 100%; border-radius: 3px; transform-origin: left; animation: wachsen 800ms var(--ease-out) both; }
+.budget-fuellung.gut { background: var(--gruen); }
+.budget-fuellung.knapp { background: var(--orange); }
+.budget-fuellung.drueber { background: var(--rot); }
+.budget-text { font-size: 13px; margin-top: 3px; }
+.budget-text.knapp { color: var(--orange); }
+.budget-text.drueber { color: var(--rot); font-weight: 600; }
+.betrag-feld { font-family: var(--font-rund); font-size: 28px; font-weight: 800; }
+.betrag-feld.raus { color: var(--rot); }
+.betrag-feld.rein { color: var(--gruen); }
+.job-kopf { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.stunden-eingabe { display: flex; gap: 8px; padding: 14px 16px 8px; align-items: center; }
+.stunden-eingabe .feld[type='date'] { flex: 1; }
+.stunden-eingabe .knopf { height: 46px; width: 46px; padding: 0; flex: none; }
