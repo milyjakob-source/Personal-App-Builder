@@ -3,55 +3,19 @@ import { useState } from 'react';
 import { erinnern } from '../aktionen';
 import { MONATE, plusTage, startDesTages, tagKey } from '../lib/datum';
 import { aendere, neueId, useDaten } from '../store';
-import { Gruppe, Haken, Kopf, Leer, toast, useJetzt, Zeile } from '../ui/ui';
+import { EinkaufListe } from '../ui/Einkauf';
+import { Gruppe, Kopf, Leer, toast, useJetzt, Zeile } from '../ui/ui';
 
 export function Einkauf() {
   const d = useDaten();
-  const [neu, setNeu] = useState('');
-  const offen = d.einkauf.filter((e) => !e.erledigt);
-  const erledigt = d.einkauf.filter((e) => e.erledigt);
-
-  function hinzu() {
-    const posten = neu.split(',').map((p) => p.trim()).filter(Boolean);
-    if (!posten.length) return;
-    aendere((x) => {
-      for (const p of posten) x.einkauf.push({ id: neueId(), titel: p.charAt(0).toUpperCase() + p.slice(1), erledigt: false });
-    });
-    setNeu('');
-  }
-
+  const offen = d.einkauf.filter((e) => !e.erledigt).length;
   return (
     <div className="seite">
-      <Kopf titel="Einkauf" zurueck="mehr" unter={offen.length ? `${offen.length} offen` : 'Alles da'} />
-      <Gruppe fuss="Mehrere Sachen mit Komma trennen. Oder einfach auf der Startseite „Milch und Eier kaufen“ abladen.">
-        <div className="karte">
-          <form className="zeile" onSubmit={(e) => { e.preventDefault(); hinzu(); }}>
-            <span className="check" />
-            <input className="ohne" style={{ textAlign: 'left', flex: 1, color: 'var(--text)' }} placeholder="Hinzufügen" value={neu} onChange={(e) => setNeu(e.target.value)} enterKeyHint="done" />
-          </form>
-          {offen.map((e) => (
-            <Zeile
-              key={e.id}
-              links={<Haken an={false} label="Gekauft" onClick={() => aendere((x) => { const y = x.einkauf.find((z) => z.id === e.id); if (y) y.erledigt = true; })} />}
-              titel={e.titel}
-            />
-          ))}
-        </div>
-      </Gruppe>
-      {erledigt.length > 0 && (
-        <Gruppe titel="Im Wagen" mehr={{ text: 'Leeren', onClick: () => aendere((x) => { x.einkauf = x.einkauf.filter((y) => !y.erledigt); }) }}>
-          <div className="karte">
-            {erledigt.map((e) => (
-              <Zeile
-                key={e.id}
-                erledigt
-                links={<Haken an label="Wieder offen" onClick={() => aendere((x) => { const y = x.einkauf.find((z) => z.id === e.id); if (y) y.erledigt = false; })} />}
-                titel={e.titel}
-              />
-            ))}
-          </div>
-        </Gruppe>
-      )}
+      <Kopf titel="Einkauf" zurueck="mehr" unter={offen ? `${offen} offen` : 'Alles da'} />
+      <EinkaufListe />
+      <p className="gruppe-fuss">
+        Mehrere Sachen mit Komma trennen. Steht „Einkaufen“ in einem Termin oder einer Aufgabe, öffnest du die Liste direkt dort über das Wagen-Symbol.
+      </p>
     </div>
   );
 }

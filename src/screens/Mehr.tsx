@@ -35,7 +35,7 @@ export function Mehr() {
       <div className="rein" style={{ '--i': 5 } as CSSProperties}>
         <Gruppe>
           <div className="karte">
-            <Zeile icon={<ShareNetwork size={17} weight="bold" />} farbe="var(--teal)" titel="Kurzbefehle" neben={d.einstellungen.kurzbefehleAktiv ? 'Kalender und Erinnerungen verbunden' : 'Kalender und Erinnerungen verbinden'} onClick={() => geh('mehr/kurzbefehle')} pfeil />
+            <Zeile icon={<ShareNetwork size={17} weight="bold" />} farbe="var(--teal)" titel="Kurzbefehle" neben={d.einstellungen.kurzbefehleAktiv ? 'Kalender verbunden' : 'iPhone-Kalender verbinden'} onClick={() => geh('mehr/kurzbefehle')} pfeil />
             <Zeile icon={<GearSix size={17} weight="fill" />} farbe="#8e8e93" titel="Einstellungen" neben="Name, Farbe, Backup" onClick={() => geh('mehr/einstellungen')} pfeil />
           </div>
         </Gruppe>

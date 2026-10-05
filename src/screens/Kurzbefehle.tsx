@@ -1,5 +1,5 @@
 import { tagKey, zeitKey } from '../lib/datum';
-import { erinnerungEingabe, KB_ERINNERUNG, KB_TERMIN, starteKurzbefehl, terminEingabe } from '../lib/kurzbefehle';
+import { erinnerungEingabe, KB_ERINNERUNG, starteKurzbefehl } from '../lib/kurzbefehle';
 import { aendere, useDaten } from '../store';
 import { holeKalender } from '../ui/Agenda';
 import { Gruppe, Kopf } from '../ui/ui';
@@ -12,12 +12,12 @@ export function Kurzbefehle() {
     <div className="seite anleitung">
       <Kopf titel="Kurzbefehle" zurueck="mehr" unter="Verbindung zu Kalender und Erinnerungen" />
 
-      <Gruppe fuss="Eine Website darf nicht direkt in deinen Kalender schauen. Die Kurzbefehle-App schon. Du legst einmalig drei Kurzbefehle an, danach reicht ein Tipp in MILI.">
+      <Gruppe fuss="Eine Website darf nicht direkt in deinen Kalender schauen. Die Kurzbefehle-App schon. Du legst einmalig den Kurzbefehl „MILI Kalender“ an, danach reicht ein Tipp in MILI. Dein iPhone-Kalender wird dabei nur gelesen, nie verändert.">
         <div className="karte">
           <label className="zeile">
             <div className="haupt">
               <div className="titel">Kurzbefehle sind eingerichtet</div>
-              <div className="neben">Neue Termine gehen dann automatisch in deinen iCloud-Kalender</div>
+              <div className="neben">Dann holt das Aktualisieren-Symbol bei der Woche deine Termine</div>
             </div>
             <input type="checkbox" checked={aktiv} onChange={(e) => aendere((x) => { x.einstellungen.kurzbefehleAktiv = e.target.checked; })} style={{ width: 22, height: 22, accentColor: 'var(--accent)' }} />
           </label>
@@ -58,30 +58,7 @@ export function Kurzbefehle() {
         </div>
       </Gruppe>
 
-      <Gruppe titel="2. MILI Termin" fuss="Schreibt Termine aus MILI in deinen iCloud-Kalender. MILI schickt Titel, Beginn, Ende und Ort, jeweils in einer eigenen Zeile.">
-        <div className="karte innen">
-          <ol>
-            <li>Neuer Kurzbefehl mit Namen <code>MILI Termin</code>.</li>
-            <li>Aktion <b>Text teilen</b>: Eingabe ist die <b>Kurzbefehleingabe</b>, Trennzeichen <b>Neue Zeilen</b>.</li>
-            <li>Aktion <b>Objekt aus Liste abrufen</b>, <b>Objekt am Index 1</b>. Danach <b>Variable festlegen</b>: <code>Titel</code>.</li>
-            <li>Wieder <b>Objekt aus Liste abrufen</b> aus dem geteilten Text, Index <b>2</b>, dann <b>Datum aus Eingabe abrufen</b>, dann <b>Variable festlegen</b>: <code>Beginn</code>.</li>
-            <li>Genauso Index <b>3</b> als <code>Ende</code> und Index <b>4</b> (ohne Datum-Schritt) als <code>Ort</code>.</li>
-            <li>Aktion <b>Neues Ereignis hinzufügen</b>: Titel, Startdatum, Enddatum und Ort mit den Variablen füllen, deinen Kalender auswählen.</li>
-          </ol>
-          <button
-            className="knopf zweit klein"
-            onClick={() => {
-              const morgen = new Date(Date.now() + 86400000);
-              morgen.setHours(12, 0, 0, 0);
-              starteKurzbefehl(KB_TERMIN, terminEingabe({ titel: 'MILI Test', start: zeitKey(morgen), ganztag: false }));
-            }}
-          >
-            Testen (morgen 12 Uhr)
-          </button>
-        </div>
-      </Gruppe>
-
-      <Gruppe titel="3. MILI Erinnerung" fuss="Das ist dein Weg zu Mitteilungen auf dem iPhone: MILI legt eine Erinnerung an, iOS meldet sich pünktlich. Funktioniert auch, wenn MILI geschlossen ist.">
+      <Gruppe titel="2. MILI Erinnerung (optional)" fuss="Das ist dein Weg zu Mitteilungen auf dem iPhone: MILI legt eine Erinnerung an, iOS meldet sich pünktlich. Funktioniert auch, wenn MILI geschlossen ist.">
         <div className="karte innen">
           <ol>
             <li>Neuer Kurzbefehl mit Namen <code>MILI Erinnerung</code>.</li>

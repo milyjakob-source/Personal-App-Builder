@@ -1,17 +1,28 @@
 import { CaretLeft, CaretRight, Plus } from '@phosphor-icons/react';
 import { useState, type CSSProperties } from 'react';
-import { anKalender, terminAnlegen } from '../aktionen';
-import { tagesEintraege } from '../lib/agenda';
+import { bereichSetzen, terminAnlegen } from '../aktionen';
+import { tagesEintraege, type Eintrag } from '../lib/agenda';
+import { BEREICHE, bereichFuer, type Bereich } from '../lib/bereiche';
 import { MONATE, plusMinuten, plusTage, tagKey, WOCHENTAGE, wochenStart, lies, zeitKey } from '../lib/datum';
 import { aendere, useDaten } from '../store';
 import type { Termin } from '../types';
-import { EintragZeile, eintragFarbe, KalenderBanner, KalenderSendenBanner, KalenderStand } from '../ui/Agenda';
-import { Blatt, Gruppe, Kopf, toast, useJetzt } from '../ui/ui';
+import { EintragZeile, eintragFarbe, KalenderBanner, KalenderKnopf, kalenderStandText } from '../ui/Agenda';
+import { Blatt, Kopf, toast, useJetzt } from '../ui/ui';
+
+type Filter = 'alle' | 'arbeit' | 'freizeit' | Bereich;
+
+function passt(e: Eintrag, f: Filter): boolean {
+  if (f === 'alle') return true;
+  if (!e.bereich) return false;
+  if (f === 'freizeit') return BEREICHE.find((b) => b.id === e.bereich)!.freizeit;
+  return e.bereich === f;
+}
 
 export function Woche() {
   const d = useDaten();
   const jetzt = useJetzt();
   const [versatz, setVersatz] = useState(0);
+  const [filter, setFilter] = useState<Filter>('alle');
   const [blatt, setBlatt] = useState<Partial<Termin> | null>(null);
 
   const montag = plusTage(wochenStart(jetzt), versatz * 7);
@@ -22,6 +33,14 @@ export function Woche() {
     montag.getMonth() === sonntag.getMonth()
       ? `${montag.getDate()}. bis ${sonntag.getDate()}. ${MONATE[sonntag.getMonth()]}`
       : `${montag.getDate()}. ${MONATE[montag.getMonth()].slice(0, 3)}. bis ${sonntag.getDate()}. ${MONATE[sonntag.getMonth()].slice(0, 3)}.`;
+
+  const filterListe: [Filter, string, string?][] = [
+    ['alle', 'Alle'],
+    ['arbeit', 'Arbeit', 'var(--indigo)'],
+    ['freizeit', 'Freizeit', 'var(--gruen)'],
+    ...BEREICHE.filter((b) => b.freizeit).map((b) => [b.id, b.name, b.farbe] as [Filter, string, string]),
+    ['alltag', 'Alltag', 'var(--teal)'],
+  ];
 
   return (
     <div className="seite">
@@ -51,15 +70,27 @@ export function Woche() {
         }
       />
       <KalenderBanner />
-      <KalenderSendenBanner />
-      {versatz !== 0 && (
-        <button className="knopf zweit klein" style={{ marginBottom: 8 }} onClick={() => setVersatz(0)}>
-          Zu heute
-        </button>
-      )}
+
+      <div className="chips" style={{ marginBottom: 6 }}>
+        {filterListe.map(([f, name, farbe]) => (
+          <button key={f} className={`chip${filter === f ? ' an' : ''}`} style={farbe ? ({ '--farbe': farbe } as CSSProperties) : undefined} onClick={() => setFilter(f)}>
+            {name}
+          </button>
+        ))}
+      </div>
+
+      <div className="kalender-zeile">
+        <span>{kalenderStandText(d.einstellungen.kalenderStand)}</span>
+        {versatz !== 0 && (
+          <button className="knopf zweit klein" onClick={() => setVersatz(0)}>
+            Zu heute
+          </button>
+        )}
+        <KalenderKnopf />
+      </div>
 
       {tage.map((tag, i) => {
-        const eintraege = tagesEintraege(d, tag);
+        const eintraege = tagesEintraege(d, tag).filter((e) => passt(e, filter));
         const istHeute = tagKey(tag) === tagKey(jetzt);
         return (
           <section key={`${versatz}-${tagKey(tag)}`} className="rein" style={{ '--i': i } as CSSProperties}>
@@ -70,7 +101,7 @@ export function Woche() {
             <div className="karte">
               {eintraege.length === 0 ? (
                 <button className="zeile" onClick={() => setBlatt({ titel: '', start: `${tagKey(tag)}T19:00`, ganztag: false })}>
-                  <span className="leise" style={{ fontSize: 15 }}>Frei</span>
+                  <span className="leise" style={{ fontSize: 15 }}>{filter === 'alle' ? 'Frei' : 'Nichts in diesem Bereich'}</span>
                 </button>
               ) : (
                 eintraege.map((e) => (
@@ -92,12 +123,6 @@ export function Woche() {
         );
       })}
 
-      <Gruppe fuss="Termine aus deinem iCloud-Kalender kommen über den Kurzbefehl „MILI Kalender“. Neue Termine aus MILI schreibt „MILI Termin“ direkt in deinen Kalender.">
-        <div className="karte" style={{ marginTop: 24 }}>
-          <KalenderStand />
-        </div>
-      </Gruppe>
-
       <TerminBlatt termin={blatt} onClose={() => setBlatt(null)} />
     </div>
   );
@@ -113,6 +138,7 @@ function TerminFormular({ start, onClose }: { start: Partial<Termin>; onClose: (
   const neu = !start.id;
   const ausKalender = start.quelle === 'kalender';
   const setze = (x: Partial<Termin>) => setT((alt) => ({ ...alt, ...x }));
+  const aktuellerBereich = t.bereich ?? bereichFuer({ titel: t.titel ?? '', ort: t.ort, kalender: t.kalender, art: t.art }, d.einstellungen.bereichRegeln);
 
   function speichern() {
     if (!t.titel?.trim() || !t.start) {
@@ -120,8 +146,8 @@ function TerminFormular({ start, onClose }: { start: Partial<Termin>; onClose: (
       return;
     }
     if (neu) {
-      terminAnlegen({ titel: t.titel.trim(), start: t.start, ende: t.ende, ganztag: !!t.ganztag, ort: t.ort });
-      toast(d.einstellungen.kurzbefehleAktiv ? 'Termin angelegt und an den Kalender geschickt' : 'Termin angelegt');
+      terminAnlegen({ titel: t.titel.trim(), start: t.start, ende: t.ende, ganztag: !!t.ganztag, ort: t.ort, bereich: t.bereich });
+      toast('Termin angelegt');
     } else {
       aendere((x) => {
         const y = x.termine.find((z) => z.id === start.id);
@@ -135,6 +161,27 @@ function TerminFormular({ start, onClose }: { start: Partial<Termin>; onClose: (
     <Blatt titel={neu ? 'Neuer Termin' : ausKalender ? 'Termin' : 'Termin bearbeiten'} offen onClose={onClose} fertig={ausKalender ? undefined : speichern} fertigText={neu ? 'Hinzufügen' : 'Sichern'}>
       <div className="formular">
         <input className="feld" placeholder="Titel" value={t.titel ?? ''} onChange={(e) => setze({ titel: e.target.value })} disabled={ausKalender} autoFocus={neu} />
+
+        <div>
+          <div className="label">Bereich</div>
+          <div className="chips" style={{ flexWrap: 'wrap' }}>
+            {BEREICHE.map((b) => (
+              <button
+                key={b.id}
+                className={`chip${aktuellerBereich === b.id ? ' an' : ''}`}
+                style={{ '--farbe': b.farbe } as CSSProperties}
+                onClick={() => {
+                  setze({ bereich: b.id });
+                  // Gilt auch für alle anderen Termine mit diesem Titel, auch aus dem iPhone-Kalender
+                  if (t.titel?.trim()) bereichSetzen(t.titel, b.id);
+                }}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <input className="feld" placeholder="Ort" value={t.ort ?? ''} onChange={(e) => setze({ ort: e.target.value })} disabled={ausKalender} />
         <div className="karte">
           <label className="zeile">
@@ -169,27 +216,20 @@ function TerminFormular({ start, onClose }: { start: Partial<Termin>; onClose: (
             </label>
           )}
         </div>
-        {ausKalender && <p className="leise klein">Aus deinem iCloud-Kalender ({start.kalender ?? 'Kalender'}). Ändern geht in der Kalender-App.</p>}
+        {ausKalender && <p className="leise klein">Aus deinem iPhone-Kalender ({start.kalender ?? 'Kalender'}). Zeit und Titel änderst du in der Kalender-App, den Bereich hier.</p>}
         {!neu && !ausKalender && (
-          <div className="knopf-reihe">
-            {!start.gesendet && (
-              <button className="knopf zweit" onClick={() => { anKalender(start as Termin); onClose(); }}>
-                An iCloud-Kalender senden
-              </button>
-            )}
-            <button
-              className="knopf rot"
-              onClick={() => {
-                aendere((x) => {
-                  x.termine = x.termine.filter((y) => y.id !== start.id);
-                });
-                toast(start.gesendet ? 'In MILI gelöscht. Im iCloud-Kalender bitte selbst löschen.' : 'Termin gelöscht');
-                onClose();
-              }}
-            >
-              Löschen
-            </button>
-          </div>
+          <button
+            className="knopf rot"
+            onClick={() => {
+              aendere((x) => {
+                x.termine = x.termine.filter((y) => y.id !== start.id);
+              });
+              toast('Termin gelöscht');
+              onClose();
+            }}
+          >
+            Löschen
+          </button>
         )}
       </div>
     </Blatt>

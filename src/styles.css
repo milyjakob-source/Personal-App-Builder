@@ -596,3 +596,38 @@ input[type='date'].feld, input[type='datetime-local'].feld, input[type='time'].f
 @media (prefers-reduced-motion: reduce) {
   .bier .welle, .bier .blase, .bier .schaum, .bier.voll { animation: none; }
 }
+
+.einkauf-knopf {
+  display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 6px 10px; border-radius: 999px;
+  background: color-mix(in srgb, #e8900c 14%, transparent); color: #d07a00; font-size: 14px; font-weight: 700;
+  transition: transform 160ms var(--ease-out);
+}
+.einkauf-knopf:active { transform: scale(0.94); }
+
+.kalender-zeile { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin: 8px 4px 0; font-size: 13px; color: var(--text-2); font-weight: 500; }
+.kalender-zeile > span { flex: 1; }
+.kalender-zeile .rund { width: 32px; height: 32px; }
+
+/* Wochenübersicht nach Bereichen */
+.bilanz-balken { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin: 4px 0 12px; }
+.bilanz-balken > i { display: block; height: 100%; background: var(--farbe); transform-origin: left; animation: wachsen 900ms var(--ease-out) both; }
+.bilanz-legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-2); font-weight: 600; }
+.bilanz-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.bilanz-legende b { color: var(--text); font-weight: 700; }
+.bilanz-legende span::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--farbe); }
+.bilanz-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.bilanz-kopf .gross { font-family: var(--font-rund); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+
+/* Kompakte Leiste statt großer Kacheln */
+.mini-leiste { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 22px; padding: 2px 16px 6px; scroll-padding-inline: 16px; }
+.mini-leiste::-webkit-scrollbar { display: none; }
+.mini {
+  flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; border-radius: 18px; border: 0.5px solid var(--glas-rand);
+  background: var(--card); box-shadow: var(--schatten); color: var(--text); text-align: left; transition: transform 160ms var(--ease-out);
+}
+.mini:active { transform: scale(0.96); }
+.mini .icon-kachel { width: 34px; height: 34px; border-radius: 11px; }
+.mini .m-wert { font-family: var(--font-rund); font-size: 17px; font-weight: 800; line-height: 1.1; }
+.mini .m-name { font-size: 12px; color: var(--text-2); font-weight: 600; white-space: nowrap; }
+
+.hero .zaehler .hero-einkauf { background: #fff; color: #c46f00; display: inline-flex; align-items: center; gap: 5px; }

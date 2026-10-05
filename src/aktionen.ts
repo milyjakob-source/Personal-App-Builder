@@ -4,18 +4,19 @@ import { buchungsKey, mitKategorie, type RohBuchung } from './lib/bank';
 import { lies, tagKey, wannText, zeitKey } from './lib/datum';
 import type { Vorschlag } from './lib/erkennen';
 import { haendlerKey } from './lib/kategorien';
-import { erinnerungEingabe, KB_ERINNERUNG, KB_TERMIN, starteKurzbefehl, terminEingabe } from './lib/kurzbefehle';
+import { titelKey, type Bereich } from './lib/bereiche';
+import { erinnerungEingabe, KB_ERINNERUNG, starteKurzbefehl } from './lib/kurzbefehle';
 import { aendere, aktuell, neueId } from './store';
 import type { Anfrage, Buchung, Termin } from './types';
 
 const jetztKey = () => zeitKey(new Date());
 
 /** Legt einen Vorschlag an und gibt eine kurze Bestätigung zurück. */
-export function uebernehme(v: Vorschlag, senden?: boolean): string {
+export function uebernehme(v: Vorschlag): string {
   switch (v.art) {
     case 'termin':
       if (!v.wann) return uebernehme({ ...v, art: 'aufgabe' });
-      terminAnlegen({ titel: v.titel, start: v.wann, ende: v.ende, ganztag: v.wann.length <= 10, ort: v.ort }, senden);
+      terminAnlegen({ titel: v.titel, start: v.wann, ende: v.ende, ganztag: v.wann.length <= 10, ort: v.ort });
       return `Termin: ${wannText(v.wann)}`;
     case 'anfrage':
       aendere((d) => {
@@ -64,25 +65,22 @@ export function uebernehme(v: Vorschlag, senden?: boolean): string {
   }
 }
 
-/** Termin in MILI anlegen und, falls eingerichtet, per Kurzbefehl in den iCloud-Kalender schreiben. */
-export function terminAnlegen(t: Omit<Termin, 'id' | 'quelle'>, senden?: boolean) {
-  senden ??= aktuell().einstellungen.kurzbefehleAktiv;
-  const termin: Termin = { ...t, id: neueId(), quelle: 'mili', gesendet: senden };
+/** Termin in MILI anlegen. Er bleibt in MILI, der iPhone-Kalender wird nicht verändert. */
+export function terminAnlegen(t: Omit<Termin, 'id' | 'quelle'>) {
+  const termin: Termin = { ...t, id: neueId(), quelle: 'mili' };
   aendere((d) => {
     d.termine.push(termin);
   });
-  if (senden) starteKurzbefehl(KB_TERMIN, terminEingabe(termin));
   return termin;
 }
 
-export function anKalender(t: Pick<Termin, 'titel' | 'start' | 'ende' | 'ganztag' | 'ort'> & { id?: string }) {
-  starteKurzbefehl(KB_TERMIN, terminEingabe(t));
-  if (t.id) {
-    aendere((d) => {
-      const x = d.termine.find((y) => y.id === t.id);
-      if (x) x.gesendet = true;
-    });
-  }
+/** Bereich für einen Termin setzen und für alle Termine mit gleichem Titel merken. */
+export function bereichSetzen(titel: string, bereich: Bereich) {
+  const key = titelKey(titel);
+  aendere((d) => {
+    d.einstellungen.bereichRegeln = { ...(d.einstellungen.bereichRegeln ?? {}), [key]: bereich };
+    for (const t of d.termine) if (titelKey(t.titel) === key) t.bereich = bereich;
+  });
 }
 
 export function erinnern(titel: string, wann: string) {
@@ -131,12 +129,12 @@ export function anfrageStatus(id: string, status: Anfrage['status']) {
   });
 }
 
-/** Ersetzt alle Kalender-Termine durch den neuen Export. Bereits gesendete MILI-Termine, die jetzt im Kalender stehen, fallen weg. */
+/** Ersetzt alle Kalender-Termine durch den neuen Export. MILI-Termine, die genauso auch im Kalender stehen, fallen als Doppel weg. */
 export function kalenderImport(termine: Termin[]): number {
   aendere((d) => {
     const neu = new Set(termine.map((t) => `${t.titel.toLowerCase()}|${t.start.slice(0, 16)}`));
     d.termine = [
-      ...d.termine.filter((t) => t.quelle === 'mili' && !(t.gesendet && neu.has(`${t.titel.toLowerCase()}|${t.start.slice(0, 16)}`))),
+      ...d.termine.filter((t) => t.quelle === 'mili' && !neu.has(`${t.titel.toLowerCase()}|${t.start.slice(0, 16)}`)),
       ...termine,
     ];
     d.einstellungen.kalenderStand = jetztKey();

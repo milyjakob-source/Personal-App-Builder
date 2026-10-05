@@ -1,16 +1,28 @@
-import { ArrowsClockwise, Bell, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, Bell, ShoppingCart, X } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
-import { anKalender, erinnern, kalenderImport } from '../aktionen';
+import { erinnern, kalenderImport } from '../aktionen';
+import { bereichInfo } from '../lib/bereiche';
+import { EinkaufBlatt } from './Einkauf';
 import type { Eintrag } from '../lib/agenda';
 import { lies, tagKey } from '../lib/datum';
 import { KB_KALENDER, leseKalenderExport, starteKurzbefehl } from '../lib/kurzbefehle';
 import { aendere, aktuell, useDaten } from '../store';
-import { ausZwischenablage, FARBE, farbStil, geh, Haken, Icon, toast } from './ui';
+import { ausZwischenablage, FARBE, farbStil, geh, Haken, toast } from './ui';
 
 export const eintragFarbe = (e: Eintrag) =>
+  e.bereich ? bereichInfo(e.bereich).farbe :
   e.art === 'kalender' ? FARBE.kalender : e.art === 'job' ? FARBE.job : e.art === 'frist' ? FARBE.frist : e.art === 'geburtstag' ? FARBE.geburtstag : e.art === 'aufgabe' ? FARBE.aufgabe : e.art === 'treffen' ? FARBE.treffen : FARBE.termin;
 
+/** Bereich, Ort und Kalender ohne Doppelungen ("Arbeit · Arbeit"). */
+function nebenText(e: Eintrag): string {
+  const teile = [e.bereich && e.art !== 'job' ? bereichInfo(e.bereich).name : undefined, ...(e.neben?.split(' · ') ?? [])].filter(Boolean) as string[];
+  return teile.filter((t, i) => teile.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i).join(' · ');
+}
+
 export function EintragZeile({ e, tag, onClick, farbe }: { e: Eintrag; tag: Date; onClick?: () => void; farbe?: string }) {
+  const d = useDaten();
+  const [liste, setListe] = useState(false);
+  const offeneSachen = d.einkauf.filter((x) => !x.erledigt).length;
   const inhalt = (
     <>
       {e.art === 'aufgabe' ? (
@@ -34,9 +46,25 @@ export function EintragZeile({ e, tag, onClick, farbe }: { e: Eintrag; tag: Date
       {e.art !== 'aufgabe' && <span className="strich" style={farbStil(farbe)} />}
       <div className="haupt">
         <div className="titel">{e.titel}</div>
-        {e.neben && <div className="neben">{e.neben}</div>}
+        {(e.neben || e.bereich) && (
+          <div className="neben">{nebenText(e)}</div>
+        )}
       </div>
-      {e.art === 'aufgabe' && (
+      {e.einkauf && (
+        <span
+          className="einkauf-knopf"
+          role="button"
+          aria-label="Einkaufsliste öffnen"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            setListe(true);
+          }}
+        >
+          <ShoppingCart size={15} weight="fill" />
+          {offeneSachen}
+        </span>
+      )}
+      {e.art === 'aufgabe' && !e.einkauf && (
         <button
           className="rund"
           aria-label="Erinnerung"
@@ -50,12 +78,17 @@ export function EintragZeile({ e, tag, onClick, farbe }: { e: Eintrag; tag: Date
       )}
     </>
   );
-  return onClick ? (
-    <button className="zeile" onClick={onClick}>
-      {inhalt}
-    </button>
-  ) : (
-    <div className="zeile">{inhalt}</div>
+  return (
+    <>
+      {onClick ? (
+        <button className="zeile" onClick={onClick}>
+          {inhalt}
+        </button>
+      ) : (
+        <div className="zeile">{inhalt}</div>
+      )}
+      {e.einkauf && <EinkaufBlatt offen={liste} onClose={() => setListe(false)} />}
+    </>
   );
 }
 
@@ -124,46 +157,21 @@ export function KalenderBanner() {
   );
 }
 
-export function KalenderStand() {
-  const d = useDaten();
-  const stand = d.einstellungen.kalenderStand;
-  let text = 'iCloud-Kalender noch nicht verbunden';
-  if (stand) {
-    const min = Math.round((Date.now() - lies(stand).getTime()) / 60000);
-    text = min < 2 ? 'Kalender gerade aktualisiert' : min < 60 ? `Kalender vor ${min} Min. aktualisiert` : min < 1440 ? `Kalender vor ${Math.round(min / 60)} Std. aktualisiert` : `Kalender vor ${Math.round(min / 1440)} Tagen aktualisiert`;
-  }
-  return (
-    <button className="zeile" onClick={holeKalender}>
-      <Icon farbe="var(--teal)">
-        <ArrowsClockwise size={17} weight="bold" />
-      </Icon>
-      <div className="haupt">
-        <div className="titel" style={{ fontSize: 15 }}>{text}</div>
-      </div>
-      <span className="rechts" style={{ color: 'var(--accent)' }}>Aktualisieren</span>
-    </button>
-  );
+export function kalenderStandText(stand?: string): string {
+  if (!stand) return 'Kalender noch nicht verbunden';
+  const min = Math.round((Date.now() - lies(stand).getTime()) / 60000);
+  if (min < 2) return 'Kalender gerade aktualisiert';
+  if (min < 60) return `Kalender vor ${min} Min.`;
+  if (min < 1440) return `Kalender vor ${Math.round(min / 60)} Std.`;
+  return `Kalender vor ${Math.round(min / 1440)} Tagen`;
 }
 
-/** Termine aus MILI, die noch nicht im iCloud-Kalender stehen (z. B. mehrere aus einem Diktat). */
-export function KalenderSendenBanner() {
+/** Kleines Symbol zum Aktualisieren, statt einer eigenen Zeile. */
+export function KalenderKnopf() {
   const d = useDaten();
-  if (!d.einstellungen.kurzbefehleAktiv) return null;
-  const heute = tagKey(new Date());
-  const offen = d.termine
-    .filter((t) => t.quelle === 'mili' && !t.gesendet && t.start.slice(0, 10) >= heute)
-    .sort((a, b) => a.start.localeCompare(b.start));
-  if (!offen.length) return null;
-  const naechster = offen[0];
   return (
-    <div className="banner">
-      <div className="haupt">
-        {offen.length === 1 ? '1 Termin' : `${offen.length} Termine`} noch nicht im iCloud-Kalender
-        <div className="leise klein">Als Nächstes: {naechster.titel}</div>
-      </div>
-      <button className="knopf klein" onClick={() => anKalender(naechster)}>
-        Senden
-      </button>
-    </div>
+    <button className="rund" onClick={holeKalender} aria-label={`Kalender aktualisieren (${kalenderStandText(d.einstellungen.kalenderStand)})`}>
+      <ArrowsClockwise size={17} weight="bold" />
+    </button>
   );
 }

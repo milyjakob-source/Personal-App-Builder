@@ -1,6 +1,5 @@
-import { Briefcase, CalendarPlus, Trash } from '@phosphor-icons/react';
+import { Briefcase, Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { anKalender } from '../aktionen';
 import { kurzesDatum, lies, tagKey, tagName, uhrzeit } from '../lib/datum';
 import { euro } from '../lib/sparplan';
 import { alsWann, findeZeit } from '../lib/zeit';
@@ -75,9 +74,6 @@ export function Job() {
               neben={`${uhrzeit(s.start)} bis ${uhrzeit(s.ende)} · ${stunden(s).toLocaleString('de-DE', { maximumFractionDigits: 1 })} Std.`}
               rechts={
                 <>
-                  <button className="rund" aria-label="An Kalender senden" onClick={() => anKalender({ titel: d.job.name || 'Arbeit', start: s.start, ende: s.ende, ganztag: false })}>
-                    <CalendarPlus size={16} />
-                  </button>
                   <button className="rund" aria-label="Löschen" onClick={() => aendere((x) => { x.job.schichten = x.job.schichten.filter((y) => y.id !== s.id); })}>
                     <Trash size={15} />
                   </button>

@@ -1,13 +1,15 @@
 import { Cake, CalendarBlank, ChatsCircle, Confetti, GraduationCap, Microphone, MusicNotes, ShoppingCart, Wallet } from '@phosphor-icons/react';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { oeffneAbladen } from '../abladen';
-import { naechsteFristen, naechsteGeburtstage, tagesEintraege, ueberfaelligeAufgaben } from '../lib/agenda';
+import { naechsteFristen, naechsteGeburtstage, tagesEintraege, ueberfaelligeAufgaben, wochenBilanz } from '../lib/agenda';
+import { BEREICHE, istEinkauf } from '../lib/bereiche';
 import { langesDatum, lies, plusTage, startDesTages, tageBis, tagKey, WOCHENTAGE_KURZ } from '../lib/datum';
 import { useNews, wieAlt } from '../lib/news';
 import { euro, sparplan } from '../lib/sparplan';
 import { useDaten } from '../store';
-import { EintragZeile, eintragFarbe, KalenderBanner, KalenderSendenBanner, KalenderStand } from '../ui/Agenda';
-import { FARBE, farbStil, geh, Kopf, Leer, tageszeit, useJetzt } from '../ui/ui';
+import { EintragZeile, eintragFarbe, KalenderBanner, KalenderKnopf } from '../ui/Agenda';
+import { EinkaufBlatt } from '../ui/Einkauf';
+import { FARBE, farbStil, geh, Icon, Kopf, Leer, tageszeit, useJetzt } from '../ui/ui';
 
 const RUBRIK_FARBEN: Record<string, [string, string]> = {
   Produktion: ['var(--indigo)', ''],
@@ -39,7 +41,6 @@ export function Heute() {
         />
       </div>
       <KalenderBanner />
-      <KalenderSendenBanner />
 
       <div className="rein" style={{ '--i': 1 } as CSSProperties}>
         <button className="abladen-pille karte" onClick={() => oeffneAbladen('tippen')}>
@@ -71,6 +72,10 @@ export function Heute() {
       </div>
 
       <div className="rein" style={{ '--i': 5 } as CSSProperties}>
+        <Bilanz jetzt={jetzt} />
+      </div>
+
+      <div className="rein" style={{ '--i': 6 } as CSSProperties}>
         <News jetzt={jetzt} />
       </div>
     </div>
@@ -98,6 +103,9 @@ function DeinTag({ jetzt }: { jetzt: Date }) {
   const laeuft = mitZeit.find((e) => minuten(e.zeit)! <= jetztMin && (minuten(e.bis) ?? minuten(e.zeit)! + 60) > jetztMin);
   const naechstes = mitZeit.find((e) => minuten(e.zeit)! > jetztMin);
   const offeneAufgaben = eintraege.filter((e) => e.art === 'aufgabe').length + ueberfaellig.length;
+  const [liste, setListe] = useState(false);
+  const einkaufHeute = eintraege.some((e) => e.einkauf) || ueberfaellig.some((a) => istEinkauf(a.titel));
+  const einkaufOffen = d.einkauf.filter((e) => !e.erledigt).length;
   const termine = eintraege.filter((e) => e.art !== 'aufgabe').length;
 
   let titel: ReactNode = 'Nichts mehr geplant';
@@ -117,6 +125,7 @@ function DeinTag({ jetzt }: { jetzt: Date }) {
   }
 
   return (
+    <>
     <div
       className="hero"
       style={{ '--h1': zeit.hero[0], '--h2': zeit.hero[1], '--h3': zeit.hero[2] } as CSSProperties}
@@ -153,8 +162,22 @@ function DeinTag({ jetzt }: { jetzt: Date }) {
         <span>{offeneAufgaben} {offeneAufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</span>
         {anfragen > 0 && <span>{anfragen} {anfragen === 1 ? 'Anfrage' : 'Anfragen'}</span>}
         {ueberfaellig.length > 0 && <span>{ueberfaellig.length} überfällig</span>}
+        {einkaufHeute && (
+          <span
+            role="button"
+            className="hero-einkauf"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              setListe(true);
+            }}
+          >
+            <ShoppingCart size={13} weight="fill" /> Einkaufsliste · {einkaufOffen}
+          </span>
+        )}
       </div>
     </div>
+    <EinkaufBlatt offen={liste} onClose={() => setListe(false)} />
+    </>
   );
 }
 
@@ -284,105 +307,99 @@ function Widgets({ jetzt }: { jetzt: Date }) {
         </>
       ),
     },
-    {
-      key: 'anfragen',
-      farbe: FARBE.anfrage,
-      onClick: () => geh('eingang'),
-      inhalt: (
-        <>
-          {kopf(<ChatsCircle size={15} weight="fill" />, 'Anfragen')}
-          <div className="w-zahl">{anfragen.length}</div>
-          <div className="w-text">{anfragen.length ? `${anfragen[0].von ?? 'Jemand'} wartet auf Antwort` : 'Alles beantwortet'}</div>
-        </>
-      ),
-    },
-    {
-      key: 'einkauf',
-      farbe: 'var(--orange)',
-      onClick: () => geh('mehr/einkauf'),
-      inhalt: (
-        <>
-          {kopf(<ShoppingCart size={15} weight="fill" />, 'Einkauf')}
-          <div className="w-zahl">{einkauf.length}</div>
-          <div className="w-text">{einkauf.length ? einkauf.map((e) => e.titel).join(', ') : 'Liste ist leer'}</div>
-        </>
-      ),
-    },
+  ];
+
+  // Kleine Leiste statt großer Kacheln
+  const minis: { key: string; icon: ReactNode; farbe: string; wert: ReactNode; name: string; onClick: () => void }[] = [
+    { key: 'anfragen', icon: <ChatsCircle size={18} weight="fill" />, farbe: FARBE.anfrage, wert: anfragen.length, name: anfragen.length === 1 ? 'Anfrage' : 'Anfragen', onClick: () => geh('eingang') },
+    { key: 'einkauf', icon: <ShoppingCart size={18} weight="fill" />, farbe: '#e8900c', wert: einkauf.length, name: 'Einkauf', onClick: () => geh('mehr/einkauf') },
     {
       key: 'geld',
+      icon: <Wallet size={18} weight="fill" />,
       farbe: 'var(--mint)',
+      wert: plan ? euro(plan.proWoche) : '–',
+      name: plan ? 'pro Woche' : 'Geld',
       onClick: () => geh(plan ? 'geld/sparplan' : 'geld'),
-      inhalt: (
-        <>
-          {kopf(<Wallet size={15} weight="fill" />, 'Geld')}
-          {plan ? (
-            <>
-              <div className="w-zahl" style={{ fontSize: 32 }}>{euro(plan.proWoche)}</div>
-              <div className="w-text">Spielraum pro Woche</div>
-            </>
-          ) : (
-            <div className="w-text" style={{ fontSize: 15, fontWeight: 650 }}>Kontoauszug hinzufügen und Überblick bekommen</div>
-          )}
-        </>
-      ),
     },
-    {
-      key: 'srh',
-      farbe: 'var(--lila)',
-      onClick: () => geh('mehr/musik'),
-      inhalt: frist ? (
-        <>
-          {kopf(<GraduationCap size={15} weight="fill" />, 'SRH Berlin')}
-          <div className="w-zahl">
-            {tageBis(lies(frist.datum), jetzt)}
-            <small>Tage</small>
-          </div>
-          <div className="w-text">{frist.titel}</div>
-        </>
-      ) : (
-        <>
-          {kopf(<GraduationCap size={15} weight="fill" />, 'SRH Berlin')}
-          <div className="w-text">Keine Fristen eingetragen</div>
-        </>
-      ),
-    },
+    ...(frist
+      ? [{ key: 'srh', icon: <GraduationCap size={18} weight="fill" />, farbe: 'var(--lila)', wert: `${tageBis(lies(frist.datum), jetzt)} T.`, name: 'SRH-Frist', onClick: () => geh('mehr/musik') }]
+      : []),
+    ...(geb
+      ? [{ key: 'geb', icon: <Cake size={18} weight="fill" />, farbe: 'var(--pink)', wert: geb.name, name: geb.inTagen === 1 ? 'morgen Geburtstag' : `Geburtstag in ${geb.inTagen} T.`, onClick: () => geh('mehr/geburtstage') }]
+      : []),
   ];
-  if (geb) {
-    liste.push({
-      key: 'geb',
-      farbe: 'var(--pink)',
-      onClick: () => geh('mehr/geburtstage'),
-      inhalt: (
-        <>
-          {kopf(<Cake size={15} weight="fill" />, 'Geburtstag')}
-          <div className="w-zahl" style={{ fontSize: 30 }}>{geb.name}</div>
-          <div className="w-text">
-            {geb.inTagen === 1 ? 'morgen' : `in ${geb.inTagen} Tagen`}
-            {geb.alter ? `, wird ${geb.alter}` : ''}
-          </div>
-        </>
-      ),
-    });
-  }
-  // Ungerade Anzahl kleiner Kacheln: die letzte wird breit, damit keine Lücke bleibt
-  const klein = liste.filter((w) => !w.breit);
-  if (klein.length % 2) klein[klein.length - 1].breit = true;
 
   return (
-    <div className="bento">
-      {liste.map((w) => (
-        <button
-          key={w.key}
-          className={`widget${w.breit ? ' breit' : ''}${w.farbig ? ' farbig' : ''}${w.bier ? ' bier-widget' : ''}`}
-          style={{ ...(w.farbig ? { '--a': w.farbig[0], '--b': w.farbig[1] } : {}), '--farbe': w.farbe ?? '#fff' } as CSSProperties}
-          onClick={w.onClick}
-        >
-          {w.inhalt}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="bento" style={{ marginBottom: 12 }}>
+        {liste.map((w) => (
+          <button
+            key={w.key}
+            className={`widget${w.breit ? ' breit' : ''}${w.bier ? ' bier-widget' : ''}`}
+            style={{ '--farbe': w.farbe ?? '#fff' } as CSSProperties}
+            onClick={w.onClick}
+          >
+            {w.inhalt}
+          </button>
+        ))}
+      </div>
+      <div className="mini-leiste">
+        {minis.map((m) => (
+          <button key={m.key} className="mini" onClick={m.onClick}>
+            <Icon farbe={m.farbe}>{m.icon}</Icon>
+            <span>
+              <div className="m-wert">{m.wert}</div>
+              <div className="m-name">{m.name}</div>
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
+
+/** Wie sich die nächsten 7 Tage auf Arbeit und Freizeit verteilen. */
+function Bilanz({ jetzt }: { jetzt: Date }) {
+  const d = useDaten();
+  const summe = wochenBilanz(d, jetzt);
+  const teile = BEREICHE.map((b) => ({ ...b, ...(summe.get(b.id) ?? { minuten: 0, anzahl: 0 }) })).filter((b) => b.anzahl > 0);
+  if (!teile.length) return null;
+  const gesamt = teile.reduce((a, b) => a + Math.max(b.minuten, 30), 0);
+  const std = (m: number) => (m >= 60 ? `${(Math.round(m / 6) / 10).toLocaleString('de-DE')} Std.` : `${m} Min.`);
+  const arbeit = teile.filter((t) => t.id === 'arbeit').reduce((a, b) => a + b.minuten, 0);
+  const freizeit = teile.filter((t) => t.freizeit).reduce((a, b) => a + b.minuten, 0);
+  return (
+    <section className="gruppe">
+      <h2 className="gruppe-titel">
+        <span>Deine Woche</span>
+        <button className="mehr" onClick={() => geh('woche')}>Details</button>
+      </h2>
+      <button className="karte innen" style={{ width: '100%', textAlign: 'left', border: 0, color: 'var(--text)' }} onClick={() => geh('woche')}>
+        <div className="bilanz-kopf">
+          <span>
+            <span className="gross">{std(arbeit)}</span> <span className="leise">Arbeit</span>
+          </span>
+          <span>
+            <span className="gross">{std(freizeit)}</span> <span className="leise">Freizeit</span>
+          </span>
+        </div>
+        <div className="bilanz-balken">
+          {teile.map((t) => (
+            <i key={t.id} style={{ '--farbe': t.farbe, flexGrow: Math.max(t.minuten, 30) / gesamt } as CSSProperties} />
+          ))}
+        </div>
+        <div className="bilanz-legende">
+          {teile.map((t) => (
+            <span key={t.id} style={{ '--farbe': t.farbe } as CSSProperties}>
+              {t.name} <b>{t.anzahl}</b>
+            </span>
+          ))}
+        </div>
+      </button>
+    </section>
+  );
+}
+
 
 function Woche({ jetzt }: { jetzt: Date }) {
   const d = useDaten();
@@ -395,7 +412,10 @@ function Woche({ jetzt }: { jetzt: Date }) {
     <section className="gruppe">
       <h2 className="gruppe-titel">
         <span>Die nächsten Tage</span>
-        <button className="mehr" onClick={() => geh('woche')}>Woche</button>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <KalenderKnopf />
+          <button className="mehr" onClick={() => geh('woche')}>Woche</button>
+        </span>
       </h2>
       <div className="tagesleiste">
         {tage.map((t, i) => {
@@ -421,7 +441,6 @@ function Woche({ jetzt }: { jetzt: Date }) {
         ) : (
           eintraege.map((e) => <EintragZeile key={e.key} e={e} tag={tag} farbe={eintragFarbe(e)} />)
         )}
-        <KalenderStand />
       </div>
     </section>
   );

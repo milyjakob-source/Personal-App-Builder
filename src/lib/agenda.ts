@@ -1,6 +1,7 @@
 // Fasst alles, was an einem Tag ansteht, zusammen: Termine, Schichten, Aufgaben, Geburtstage, Fristen.
 
 import type { Daten } from '../types';
+import { bereichFuer, istEinkauf, type Bereich } from './bereiche';
 import { lies, plusTage, startDesTages, tagKey, uhrzeit } from './datum';
 
 export type Eintrag = {
@@ -11,6 +12,10 @@ export type Eintrag = {
   bis?: string;
   neben?: string;
   id: string;
+  /** Nur bei Terminen und Schichten */
+  bereich?: Bereich;
+  /** Titel klingt nach Einkaufen → Einkaufsliste anbieten */
+  einkauf?: boolean;
 };
 
 export function tagesEintraege(d: Daten, tag: Date): Eintrag[] {
@@ -31,19 +36,21 @@ export function tagesEintraege(d: Daten, tag: Date): Eintrag[] {
       bis: t.ende && !t.ganztag ? uhrzeit(t.ende) : undefined,
       neben: [t.ort, t.quelle === 'kalender' ? t.kalender : undefined].filter(Boolean).join(' · ') || undefined,
       id: t.id,
+      bereich: bereichFuer(t, d.einstellungen.bereichRegeln),
+      einkauf: istEinkauf(t.titel),
     });
   }
 
   if (d.job.aktiv) {
     for (const s of d.job.schichten) {
       if (s.start.slice(0, 10) !== key) continue;
-      out.push({ key: `s-${s.id}`, art: 'job', titel: d.job.name || 'Arbeit', zeit: uhrzeit(s.start), bis: uhrzeit(s.ende), neben: s.notiz, id: s.id });
+      out.push({ key: `s-${s.id}`, art: 'job', titel: d.job.name || 'Arbeit', zeit: uhrzeit(s.start), bis: uhrzeit(s.ende), neben: s.notiz, id: s.id, bereich: 'arbeit' });
     }
   }
 
   for (const a of d.aufgaben) {
     if (a.erledigt || a.faellig !== key) continue;
-    out.push({ key: `a-${a.id}`, art: 'aufgabe', titel: a.titel, id: a.id });
+    out.push({ key: `a-${a.id}`, art: 'aufgabe', titel: a.titel, id: a.id, einkauf: istEinkauf(a.titel) });
   }
 
   for (const g of d.geburtstage) {
@@ -94,4 +101,23 @@ export function anstehendeTreffen(d: Daten, tage = 7, heute = new Date()) {
     .filter((t) => t.art === 'treffen' && t.start.slice(0, 10) >= von && t.start.slice(0, 10) <= bis)
     .sort((a, b) => a.start.localeCompare(b.start))
     .map((t) => ({ ...t, datum: lies(t.start) }));
+}
+
+/** Wie viel Zeit in den nächsten 7 Tagen auf welchen Bereich fällt (Minuten und Anzahl Termine). */
+export function wochenBilanz(d: Daten, ab = new Date()) {
+  const summe = new Map<Bereich, { minuten: number; anzahl: number }>();
+  for (let i = 0; i < 7; i++) {
+    for (const e of tagesEintraege(d, plusTage(ab, i))) {
+      if (!e.bereich) continue;
+      const x = summe.get(e.bereich) ?? { minuten: 0, anzahl: 0 };
+      x.anzahl++;
+      if (e.zeit) {
+        const von = +e.zeit.slice(0, 2) * 60 + +e.zeit.slice(3, 5);
+        const bis = e.bis ? +e.bis.slice(0, 2) * 60 + +e.bis.slice(3, 5) : von + 60;
+        x.minuten += bis > von ? bis - von : bis + 24 * 60 - von;
+      }
+      summe.set(e.bereich, x);
+    }
+  }
+  return summe;
 }

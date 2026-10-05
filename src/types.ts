@@ -10,9 +10,9 @@ export type Termin = {
   /** 'kalender' = aus dem iCloud-Kalender übernommen, 'mili' = in MILI angelegt */
   quelle: 'kalender' | 'mili';
   kalender?: string;
-  /** In MILI angelegt und per Kurzbefehl an den iCloud-Kalender geschickt */
-  gesendet?: boolean;
   art?: 'treffen' | 'job' | 'frist';
+  /** Von Hand gewählter Bereich, sonst automatisch */
+  bereich?: import('./lib/bereiche').Bereich;
 };
 
 export type Aufgabe = {
@@ -75,6 +75,8 @@ export type Einstellungen = {
   kalenderStand?: string;
   /** Gelernte Zuordnung Händler-Stichwort → Kategorie */
   kategorieRegeln: Record<string, string>;
+  /** Gelernte Zuordnung Termin-Titel → Bereich */
+  bereichRegeln?: Record<string, import('./lib/bereiche').Bereich>;
   checkliste: Record<string, boolean>;
 };
 

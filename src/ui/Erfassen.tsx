@@ -143,14 +143,7 @@ export function Erfassen({ gross = false, orb = false, start, onGespeichert }: {
   function alleUebernehmen() {
     const gewaehlt = liste.filter((e) => e.an);
     if (!gewaehlt.length) return;
-    // Nur der erste Termin startet sofort den Kurzbefehl, die übrigen schickt man über den Hinweis nach
-    let ersterTermin = true;
-    const meldungen = gewaehlt.map((e) => {
-      if (e.v.art !== 'termin') return uebernehme(e.v);
-      const senden = ersterTermin ? undefined : false;
-      ersterTermin = false;
-      return uebernehme(e.v, senden);
-    });
+    const meldungen = gewaehlt.map((e) => uebernehme(e.v));
     toast(gewaehlt.length === 1 ? meldungen[0] : `${gewaehlt.length} Einträge gespeichert`);
     leeren();
     onGespeichert?.();
