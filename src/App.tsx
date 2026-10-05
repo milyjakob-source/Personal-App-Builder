@@ -41,6 +41,8 @@ export function App() {
   // Die Linse springt sofort beim Tippen, nicht erst nach dem Seitenwechsel
   const [linse, setLinse] = useState(aktiv);
   useEffect(() => setLinse(aktiv), [aktiv]);
+  // Seitenwechsel schließt das Abladen-Blatt
+  useEffect(() => schliesseAbladen(), [pfad]);
 
   if (!geladen) return <div className="app" />;
 
@@ -108,7 +110,7 @@ export function App() {
       </div>
 
       <Blatt titel="Gedanken abladen" offen={ab.offen} onClose={schliesseAbladen}>
-        <Erfassen key={ab.nr} gross orb start={ab.start} />
+        <Erfassen key={ab.nr} gross orb start={ab.start} onGespeichert={schliesseAbladen} />
         <p className="gruppe-fuss" style={{ textAlign: 'center' }}>
           Sag oder schreib einfach alles, was dir durch den Kopf geht. MILI sortiert es in Termine, Aufgaben, Einkäufe und mehr.
         </p>

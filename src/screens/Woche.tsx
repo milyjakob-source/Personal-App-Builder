@@ -5,7 +5,7 @@ import { tagesEintraege } from '../lib/agenda';
 import { MONATE, plusMinuten, plusTage, tagKey, WOCHENTAGE, wochenStart, lies, zeitKey } from '../lib/datum';
 import { aendere, useDaten } from '../store';
 import type { Termin } from '../types';
-import { EintragZeile, eintragFarbe, KalenderBanner, KalenderStand } from '../ui/Agenda';
+import { EintragZeile, eintragFarbe, KalenderBanner, KalenderSendenBanner, KalenderStand } from '../ui/Agenda';
 import { Blatt, Gruppe, Kopf, toast, useJetzt } from '../ui/ui';
 
 export function Woche() {
@@ -51,6 +51,7 @@ export function Woche() {
         }
       />
       <KalenderBanner />
+      <KalenderSendenBanner />
       {versatz !== 0 && (
         <button className="knopf zweit klein" style={{ marginBottom: 8 }} onClick={() => setVersatz(0)}>
           Zu heute

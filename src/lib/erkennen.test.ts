@@ -130,6 +130,45 @@ describe('erkenne', () => {
     expect(wann('Mo 12.10. 14-22 Uhr')).toEqual({ wann: '2026-10-12T14:00', ende: '2026-10-12T22:00' });
   });
 
+  it('langes Diktat ohne Punkte (echtes Beispiel)', () => {
+    const diktat =
+      'Okay heute auf der Agenda steht bei Sound of Music anrufen wegen dem Job Einkaufen gehen Und noch bis eine Woche planen ' +
+      'Morgen Gehe ich auf 18:00 Uhr nach Ostfildern zum Klavierunterricht bei Silke und muss noch zwischendrin irgendwie Zeit ' +
+      'für Josef finden damit wir für meinen Geburtstag der am 7. November ist Eine Bandprobe machen Am Freitag gehe ich mit ' +
+      'Mama Kaffeetrinken Uhrzeit steht noch nicht fest Und heute Abend gehe ich zu Juli Ich schätze so auf 20:00 Uhr';
+    const r = erkenne(diktat, JETZT).map(({ art, titel, wann, ort }) => ({ art, titel, wann, ...(ort ? { ort } : {}) }));
+    expect(r).toEqual([
+      { art: 'aufgabe', titel: 'Bei Sound of Music anrufen wegen dem Job', wann: '2026-10-05' },
+      { art: 'aufgabe', titel: 'Einkaufen gehen', wann: '2026-10-05' },
+      { art: 'aufgabe', titel: 'Eine Woche planen', wann: '2026-10-05' },
+      { art: 'termin', titel: 'Klavierunterricht bei Silke', wann: '2026-10-06T18:00', ort: 'Ostfildern' },
+      { art: 'aufgabe', titel: 'Zeit für Josef finden', wann: '2026-11-07' },
+      { art: 'termin', titel: 'Mit Mama Kaffeetrinken', wann: '2026-10-09' },
+      { art: 'termin', titel: 'Bei Juli', wann: '2026-10-05T20:00' },
+    ]);
+  });
+
+  it('Diktat: Einkauf und Termin in einem Satz', () => {
+    const r = erkenne('Morgen um 9 Uhr Zahnarzt und dann noch Milch und Brot kaufen', JETZT);
+    expect(r.map((v) => v.art)).toEqual(['termin', 'einkauf']);
+    expect(r[1].posten).toEqual(['Milch', 'Brot']);
+  });
+
+  it('Diktat: danach am selben Tag, Erinnerung als Aufgabe', () => {
+    const r = erkenne('Am Mittwoch hab ich um 14 Uhr Gitarrenunterricht und danach muss ich noch Noten ausdrucken', JETZT);
+    expect(r.map(({ art, titel, wann }) => ({ art, titel, wann }))).toEqual([
+      { art: 'termin', titel: 'Gitarrenunterricht', wann: '2026-10-07T14:00' },
+      { art: 'aufgabe', titel: 'Noten ausdrucken', wann: '2026-10-07' },
+    ]);
+    const [e] = erkenne('Erinnere mich morgen um 8 an die Miete', JETZT);
+    expect(e).toMatchObject({ art: 'aufgabe', titel: 'Miete', wann: '2026-10-06' });
+  });
+
+  it('"mein Geburtstag" ist kein Geburtstags-Eintrag', () => {
+    const [v] = erkenne('Für meinen Geburtstag am 7. November muss ich noch den Raum buchen', JETZT);
+    expect(v.art).toBe('aufgabe');
+  });
+
   it('teilt Aufzählungen', () => {
     expect(teile('- Milch\n- Brot\n1. Saiten')).toEqual(['Milch', 'Brot', 'Saiten']);
   });

@@ -73,10 +73,10 @@ export function findeZeit(text: string, jetzt = new Date()): ZeitFund {
       [re('\\b<halb\\s+(\\d{1,2}|\\p{L}+)\\b>'), (m) => halb(m[1])],
       [re('\\b<viertel\\s+nach\\s+(\\d{1,2})\\b>'), (m) => nachmittags(+m[1]) * 60 + 15],
       [re('\\b<viertel\\s+vor\\s+(\\d{1,2})\\b>'), (m) => (nachmittags(+m[1]) - 1) * 60 + 45],
-      [re('\\b<(?:um|ab|gegen)?\\s*(\\d{1,2}):(\\d{2})\\s*(?:uhr)?\\b>'), (m) => +m[1] * 60 + +m[2]],
+      [re('\\b<(?:so\\s+)?(?:um|ab|gegen|auf|ca\\.|circa|etwa)?\\s*(\\d{1,2}):(\\d{2})\\s*(?:uhr)?\\b>'), (m) => +m[1] * 60 + +m[2]],
       [re('\\b<(?:um|ab|gegen)?\\s*(\\d{1,2})\\.(\\d{2})\\s*uhr\\b>'), (m) => +m[1] * 60 + +m[2]],
       [re('\\b<(?:um|ab|gegen)\\s+(\\d{1,2})\\.(\\d{2})\\b>(?!\\.)'), (m) => +m[1] * 60 + +m[2]],
-      [re('\\b<(?:um|ab|gegen)?\\s*(\\d{1,2})\\s*uhr\\b>'), (m) => +m[1] * 60],
+      [re('\\b<(?:so\\s+)?(?:um|ab|gegen|auf|ca\\.|circa|etwa)?\\s*(\\d{1,2})\\s*uhr\\b>'), (m) => +m[1] * 60],
       [re('\\b<(?:um|ab|gegen)\\s+(\\d{1,2})\\b>(?![.:]\\d)'), (m) => nachmittags(+m[1]) * 60],
     ];
     for (const [r, f] of muster) {

@@ -11,11 +11,11 @@ import type { Anfrage, Buchung, Termin } from './types';
 const jetztKey = () => zeitKey(new Date());
 
 /** Legt einen Vorschlag an und gibt eine kurze Bestätigung zurück. */
-export function uebernehme(v: Vorschlag): string {
+export function uebernehme(v: Vorschlag, senden?: boolean): string {
   switch (v.art) {
     case 'termin':
       if (!v.wann) return uebernehme({ ...v, art: 'aufgabe' });
-      terminAnlegen({ titel: v.titel, start: v.wann, ende: v.ende, ganztag: v.wann.length <= 10 });
+      terminAnlegen({ titel: v.titel, start: v.wann, ende: v.ende, ganztag: v.wann.length <= 10, ort: v.ort }, senden);
       return `Termin: ${wannText(v.wann)}`;
     case 'anfrage':
       aendere((d) => {
@@ -65,7 +65,8 @@ export function uebernehme(v: Vorschlag): string {
 }
 
 /** Termin in MILI anlegen und, falls eingerichtet, per Kurzbefehl in den iCloud-Kalender schreiben. */
-export function terminAnlegen(t: Omit<Termin, 'id' | 'quelle'>, senden = aktuell().einstellungen.kurzbefehleAktiv) {
+export function terminAnlegen(t: Omit<Termin, 'id' | 'quelle'>, senden?: boolean) {
+  senden ??= aktuell().einstellungen.kurzbefehleAktiv;
   const termin: Termin = { ...t, id: neueId(), quelle: 'mili', gesendet: senden };
   aendere((d) => {
     d.termine.push(termin);

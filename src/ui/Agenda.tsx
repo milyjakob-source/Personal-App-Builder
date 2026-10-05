@@ -1,6 +1,6 @@
 import { ArrowsClockwise, Bell, X } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
-import { erinnern, kalenderImport } from '../aktionen';
+import { anKalender, erinnern, kalenderImport } from '../aktionen';
 import type { Eintrag } from '../lib/agenda';
 import { lies, tagKey } from '../lib/datum';
 import { KB_KALENDER, leseKalenderExport, starteKurzbefehl } from '../lib/kurzbefehle';
@@ -142,5 +142,28 @@ export function KalenderStand() {
       </div>
       <span className="rechts" style={{ color: 'var(--accent)' }}>Aktualisieren</span>
     </button>
+  );
+}
+
+/** Termine aus MILI, die noch nicht im iCloud-Kalender stehen (z. B. mehrere aus einem Diktat). */
+export function KalenderSendenBanner() {
+  const d = useDaten();
+  if (!d.einstellungen.kurzbefehleAktiv) return null;
+  const heute = tagKey(new Date());
+  const offen = d.termine
+    .filter((t) => t.quelle === 'mili' && !t.gesendet && t.start.slice(0, 10) >= heute)
+    .sort((a, b) => a.start.localeCompare(b.start));
+  if (!offen.length) return null;
+  const naechster = offen[0];
+  return (
+    <div className="banner">
+      <div className="haupt">
+        {offen.length === 1 ? '1 Termin' : `${offen.length} Termine`} noch nicht im iCloud-Kalender
+        <div className="leise klein">Als Nächstes: {naechster.titel}</div>
+      </div>
+      <button className="knopf klein" onClick={() => anKalender(naechster)}>
+        Senden
+      </button>
+    </div>
   );
 }

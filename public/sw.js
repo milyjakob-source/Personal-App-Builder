@@ -1,5 +1,5 @@
 // Offline-Cache für MILI. App-Dateien aus dem Cache, Seite und News zuerst aus dem Netz.
-const CACHE = 'mili-v1';
+const CACHE = 'mili-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])));

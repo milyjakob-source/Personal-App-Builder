@@ -6,16 +6,16 @@ import { langesDatum, lies, plusTage, startDesTages, tageBis, tagKey, WOCHENTAGE
 import { useNews, wieAlt } from '../lib/news';
 import { euro, sparplan } from '../lib/sparplan';
 import { useDaten } from '../store';
-import { EintragZeile, eintragFarbe, KalenderBanner, KalenderStand } from '../ui/Agenda';
+import { EintragZeile, eintragFarbe, KalenderBanner, KalenderSendenBanner, KalenderStand } from '../ui/Agenda';
 import { FARBE, farbStil, geh, Kopf, Leer, tageszeit, useJetzt } from '../ui/ui';
 
 const RUBRIK_FARBEN: Record<string, [string, string]> = {
-  Produktion: ['#5e5ce6', '#bf5af2'],
-  Business: ['#0a84ff', '#32ade6'],
-  Künstler: ['#ff375f', '#ff9f0a'],
-  Stuttgart: ['#30d158', '#00a3a3'],
-  Berlin: ['#ff9f0a', '#ff375f'],
-  Studium: ['#bf5af2', '#ff375f'],
+  Produktion: ['var(--indigo)', ''],
+  Business: ['var(--blau)', ''],
+  Künstler: ['var(--pink)', ''],
+  Stuttgart: ['var(--gruen)', ''],
+  Berlin: ['var(--orange)', ''],
+  Studium: ['var(--lila)', ''],
 };
 
 
@@ -39,9 +39,10 @@ export function Heute() {
         />
       </div>
       <KalenderBanner />
+      <KalenderSendenBanner />
 
       <div className="rein" style={{ '--i': 1 } as CSSProperties}>
-        <button className="abladen-pille glas" onClick={() => oeffneAbladen('tippen')}>
+        <button className="abladen-pille karte" onClick={() => oeffneAbladen('tippen')}>
           <span>Was geht dir durch den Kopf?</span>
           <span
             className="mic"
@@ -171,26 +172,59 @@ function wochenende(jetzt: Date) {
   return { jetzt: false, rest, anteil: 1 - rest / gesamt };
 }
 
-function Ring({ anteil, groesse = 58 }: { anteil: number; groesse?: number }) {
-  const r = (groesse - 8) / 2;
-  const u = 2 * Math.PI * r;
+/** Bierglas, das sich über die Woche füllt. Ab Freitag 18 Uhr voll, mit Schaum und Prost-Wackeln. */
+function Bierglas({ anteil, voll }: { anteil: number; voll: boolean }) {
+  const oben = 14;
+  const unten = 100;
+  const pegel = voll ? oben + 2 : unten - (unten - oben) * Math.min(0.97, Math.max(0.06, anteil));
+  const glas = 'M8 8 L72 8 L66 98 Q65 104 59 104 L21 104 Q15 104 14 98 Z';
+  const id = 'bier-glas';
   return (
-    <svg className="ring" width={groesse} height={groesse} viewBox={`0 0 ${groesse} ${groesse}`} aria-hidden>
-      <circle className="spur" cx={groesse / 2} cy={groesse / 2} r={r} />
-      <circle
-        className="wert"
-        cx={groesse / 2}
-        cy={groesse / 2}
-        r={r}
-        strokeDasharray={u}
-        strokeDashoffset={u * (1 - Math.min(1, Math.max(0.02, anteil)))}
-        transform={`rotate(-90 ${groesse / 2} ${groesse / 2})`}
-      />
+    <svg className={`bier${voll ? ' voll' : ''}`} viewBox="0 0 80 110" aria-hidden>
+      <defs>
+        <clipPath id={id}>
+          <path d={glas} />
+        </clipPath>
+        <linearGradient id="bier-farbe" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffd54a" />
+          <stop offset="1" stopColor="#f29a0c" />
+        </linearGradient>
+      </defs>
+      <g clipPath={`url(#${id})`}>
+        <path d={glas} fill="currentColor" opacity="0.06" />
+        <g className="fluessig">
+          <g className="welle">
+            <path
+              d={`M0 ${pegel} q10 -4 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 V110 H0 Z`}
+              fill="url(#bier-farbe)"
+            />
+          </g>
+          {[18, 30, 44, 56, 38].map((x, i) => (
+            <circle key={i} className="blase" cx={x} cy={unten - 2} r={i % 2 ? 1.6 : 2.2} style={{ animationDelay: `${i * 0.5}s` }} />
+          ))}
+          {(voll || anteil > 0.8) && (
+            <g className="schaum">
+              {[14, 26, 38, 50, 62].map((x, i) => (
+                <circle key={x} cx={x} cy={pegel - 1 + (i % 2) * 2} r={9} />
+              ))}
+            </g>
+          )}
+        </g>
+      </g>
+      {voll && (
+        <g className="schaum">
+          {[12, 24, 36, 48, 60, 70].map((x, i) => (
+            <circle key={x} cx={x} cy={8 - (i % 2) * 3} r={8 + (i % 3)} />
+          ))}
+        </g>
+      )}
+      <path className="glas-rand" d={glas} />
+      <path className="glanz" d="M20 20 L23 88" />
     </svg>
   );
 }
 
-type Widget = { key: string; breit?: boolean; inhalt: ReactNode; onClick: () => void; farbig?: [string, string]; farbe?: string };
+type Widget = { key: string; breit?: boolean; bier?: boolean; inhalt: ReactNode; onClick: () => void; farbig?: [string, string]; farbe?: string };
 
 function Widgets({ jetzt }: { jetzt: Date }) {
   const d = useDaten();
@@ -215,33 +249,38 @@ function Widgets({ jetzt }: { jetzt: Date }) {
     {
       key: 'we',
       breit: true,
-      farbig: we.jetzt ? ['#30d158', '#00a3a3'] : ['#ff9f0a', '#ff375f'],
+      bier: true,
+      farbe: 'var(--orange)',
       onClick: () => geh('woche'),
       inhalt: (
         <>
-          {kopf(<Confetti size={15} weight="fill" />, we.jetzt ? 'Wochenende!' : 'Bis zum Wochenende')}
-          <Ring anteil={we.anteil} />
-          <div className="countdown" style={{ marginTop: 18 }}>
-            {tage > 0 && (
-              <div>
-                <b>{tage}</b>
-                <span>{tage === 1 ? 'Tag' : 'Tage'}</span>
-              </div>
-            )}
-            <div>
-              <b>{std}</b>
-              <span>Std.</span>
+          <div className="bier-text">
+            {kopf(<Confetti size={15} weight="fill" />, we.jetzt ? 'Wochenende!' : 'Bis zum Wochenende')}
+            <div className="countdown">
+              {tage > 0 && (
+                <div>
+                  <b>{tage}</b>
+                  <span>{tage === 1 ? 'Tag' : 'Tage'}</span>
+                </div>
+              )}
+              {(tage > 0 || std > 0) && (
+                <div>
+                  <b>{std}</b>
+                  <span>Std.</span>
+                </div>
+              )}
+              {tage === 0 && (
+                <div>
+                  <b>{min}</b>
+                  <span>Min.</span>
+                </div>
+              )}
             </div>
-            {tage === 0 && (
-              <div>
-                <b>{min}</b>
-                <span>Min.</span>
-              </div>
-            )}
+            <div className="w-text">
+              {we.jetzt ? 'noch frei. Prost!' : jetzt.getDay() === 5 ? 'Fast geschafft. Das Glas ist gleich voll.' : 'Das Glas füllt sich bis Freitag 18 Uhr.'}
+            </div>
           </div>
-          <div className="w-text" style={{ marginTop: 4 }}>
-            {we.jetzt ? 'noch frei. Mach was Schönes.' : jetzt.getDay() === 5 ? 'Fast geschafft. Freitag ab 18 Uhr.' : 'Freitag ab 18 Uhr ist frei.'}
-          </div>
+          <Bierglas anteil={we.anteil} voll={we.jetzt} />
         </>
       ),
     },
@@ -271,7 +310,7 @@ function Widgets({ jetzt }: { jetzt: Date }) {
     },
     {
       key: 'geld',
-      farbig: ['#34c759', '#00a3a3'],
+      farbe: 'var(--mint)',
       onClick: () => geh(plan ? 'geld/sparplan' : 'geld'),
       inhalt: (
         <>
@@ -289,7 +328,7 @@ function Widgets({ jetzt }: { jetzt: Date }) {
     },
     {
       key: 'srh',
-      farbig: ['#bf5af2', '#5e5ce6'],
+      farbe: 'var(--lila)',
       onClick: () => geh('mehr/musik'),
       inhalt: frist ? (
         <>
@@ -311,7 +350,7 @@ function Widgets({ jetzt }: { jetzt: Date }) {
   if (geb) {
     liste.push({
       key: 'geb',
-      farbig: ['#ff375f', '#ff9f0a'],
+      farbe: 'var(--pink)',
       onClick: () => geh('mehr/geburtstage'),
       inhalt: (
         <>
@@ -334,7 +373,7 @@ function Widgets({ jetzt }: { jetzt: Date }) {
       {liste.map((w) => (
         <button
           key={w.key}
-          className={`widget${w.breit ? ' breit' : ''}${w.farbig ? ' farbig' : ''}`}
+          className={`widget${w.breit ? ' breit' : ''}${w.farbig ? ' farbig' : ''}${w.bier ? ' bier-widget' : ''}`}
           style={{ ...(w.farbig ? { '--a': w.farbig[0], '--b': w.farbig[1] } : {}), '--farbe': w.farbe ?? '#fff' } as CSSProperties}
           onClick={w.onClick}
         >
@@ -399,7 +438,7 @@ function News({ jetzt }: { jetzt: Date }) {
       {news && news.artikel.length > 0 ? (
         <div className="karussell">
           {news.artikel.slice(0, 8).map((a) => {
-            const [f1, f2] = RUBRIK_FARBEN[a.rubrik] ?? ['#5e5ce6', '#bf5af2'];
+            const [f1, f2] = RUBRIK_FARBEN[a.rubrik] ?? ['var(--lila)', ''];
             return (
               <a key={a.link} className="news-karte" href={a.link} target="_blank" rel="noreferrer" style={{ '--a': f1, '--b': f2 } as CSSProperties}>
                 <span className="r">{a.rubrik}</span>

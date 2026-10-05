@@ -1,4 +1,4 @@
-import { CaretLeft, CaretRight, Check } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, Check, X } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -333,7 +333,9 @@ export function Blatt({
         <div className="blatt-griff-zone" onPointerDown={start} onPointerMove={bewegen} onPointerUp={ende} onPointerCancel={ende}>
           <div className="blatt-griff" />
           <div className="blatt-kopf">
-            <button onClick={onClose}>Schließen</button>
+            <button className="schliessen" onClick={onClose} aria-label="Schließen">
+              <X size={16} weight="bold" />
+            </button>
             <h2>{titel}</h2>
             {fertig ? (
               <button className="fertig" onClick={fertig}>

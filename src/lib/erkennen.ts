@@ -17,33 +17,48 @@ export type Vorschlag = {
   betrag?: number;
   posten?: string[];
   geburtstag?: { name: string; tag: number; monat: number; jahr?: number };
+  ort?: string;
   original: string;
 };
 
-const W = (woerter: string) => new RegExp(`(?<![\\p{L}])(?:${woerter})(?![\\p{L}])`, 'iu');
+const W = (woerter: string, flags = 'iu') => new RegExp(`(?<![\\p{L}])(?:${woerter})(?![\\p{L}])`, flags);
+/** Auch als Wortende, für zusammengesetzte Wörter wie "Klavierunterricht" oder "Bandprobe". */
+const ENDE = (woerter: string) => new RegExp(`(?:${woerter})(?![\\p{L}])`, 'iu');
 
 const ANFRAGE = W(
   'zeit|lust|bock|treffen|kommst|kommt|kommen|wollen wir|sollen wir|können wir|gehen wir|machen wir|hast du|habt ihr|bist du|seid ihr|dabei|vorbei|kaffee|essen gehen|feiern|party|zocken|bier|kino|jammen|jam|session|proben|mitkommen|abhängen|chillen|was geht|was machst du',
 );
-const TERMIN = W(
-  'termin|arzt|zahnarzt|ärztin|probe|bandprobe|meeting|treffen|konzert|gig|vorlesung|seminar|kurs|unterricht|stunde|training|party|feier|kino|vorstellungsgespräch|bewerbungsgespräch|gespräch|friseur|frisör|prüfung|klausur|eignungsprüfung|aufnahmeprüfung|essen mit|date|flug|zug|abfahrt|schicht|arbeit|besichtigung|workshop|festival',
+const TERMIN = ENDE(
+  'termin|arzt|ärztin|probe|meeting|treffen|konzert|gig|vorlesung|seminar|kurs|unterricht|stunde|training|party|feier|kino|gespräch|friseur|frisör|prüfung|klausur|essen mit|flug|zug|abfahrt|schicht|arbeit|besichtigung|workshop|festival|session|jam',
 );
 const AUFGABE = W(
-  'muss|müssen|musst|sollte|nicht vergessen|vergiss nicht|erinnere mich|erinner mich|todo|to do|to-do|anrufen|zurückrufen|schreiben|antworten|erledigen|abgeben|bezahlen|überweisen|kündigen|beantragen|bewerben|schicken|senden|abholen|zurückgeben|zurückbringen|buchen|reservieren|aufräumen|waschen|putzen|lernen|üben|ausdrucken|drucken|einreichen|anmelden|abmelden|vereinbaren|machen lassen|reparieren|verkaufen|hochladen|aufnehmen',
+  'muss|müssen|musst|sollte|nicht vergessen|vergiss nicht|erinnere mich|erinner mich|todo|to do|to-do|anrufen|zurückrufen|schreiben|antworten|erledigen|abgeben|bezahlen|überweisen|kündigen|beantragen|bewerben|schicken|abschicken|senden|abholen|zurückgeben|zurückbringen|buchen|reservieren|aufräumen|waschen|putzen|lernen|üben|ausdrucken|drucken|einreichen|anmelden|abmelden|vereinbaren|machen lassen|reparieren|verkaufen|hochladen|aufnehmen|planen|organisieren|vorbereiten|kümmern|klären|finden|suchen|fragen|nachfragen|melden|checken|prüfen|besorgen|erledigen',
 );
 const EINKAUF = W('kaufen|einkaufen|einkauf|einkaufsliste|besorgen|brauchen noch|brauche noch|ist alle|sind alle|leer');
 const GEBURTSTAG = W('geburtstag|geb\\.|bday|birthday');
+const MEIN_GEBURTSTAG = W('mein|meinen|meinem|meiner');
 const AUSGABE = W('kostet|kosten|zahlen|bezahlen|miete|rechnung|ausgabe|ticket|tickets|beitrag|gebühr|gebühren|abo|überweisen|semesterbeitrag|kaution');
 
 const BETRAG = /(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(?:€|euro|eur)(?![\p{L}])|€\s*(\d+(?:[.,]\d{1,2})?)/iu;
 
+/** Wörter und Wendungen, die in einem Titel nichts verloren haben (längere zuerst). */
 const FUELLWOERTER = [
-  'ich muss', 'ich sollte', 'muss ich', 'müssen wir', 'nicht vergessen', 'vergiss nicht', 'erinnere mich', 'erinner mich',
-  'daran', 'dass ich', 'bitte', 'noch', 'unbedingt', 'mal', 'todo', 'to do', 'to-do', 'termin:', 'aufgabe:', 'notiz:',
-  'am', 'um', 'ab', 'gegen', 'den', 'diesen', 'nächsten', 'kommenden',
+  'erinnere mich an', 'erinner mich an', 'ich muss', 'muss ich', 'ich sollte', 'sollte ich', 'müssen wir', 'ich will', 'will ich', 'ich möchte', 'möchte ich',
+  'ich gehe', 'gehe ich', 'geh ich', 'ich geh', 'ich fahre', 'fahre ich', 'ich bin', 'bin ich', 'ich habe', 'habe ich',
+  'hab ich', 'ich hab', 'ich schätze', 'schätze ich', 'nicht vergessen', 'vergiss nicht', 'erinnere mich', 'erinner mich',
+  'dass ich', 'daran', 'bitte', 'noch', 'unbedingt', 'mal', 'irgendwie', 'zwischendrin', 'zwischendurch', 'eventuell',
+  'vielleicht', 'wahrscheinlich', 'ungefähr', 'circa', 'ca.', 'etwa', 'todo', 'to do', 'to-do', 'termin:', 'aufgabe:',
+  'notiz:', 'okay', 'also', 'danach', 'anschließend', 'dann', 'muss', 'müssen', 'sollte', 'am', 'um', 'ab', 'gegen', 'diesen', 'nächsten', 'kommenden', 'so',
 ];
 
-const GRUSS = /^(hey|hi|hallo|hello|moin|servus|yo|na|ok|okay|alles klar|danke|haha|lol|jo|ja|nein|nee|gut|super|cool|top)[\s!.,?]*$/i;
+const GRUSS = /^(hey|hi|hallo|hello|moin|servus|yo|na|ok|okay|also|alles klar|danke|haha|lol|jo|ja|nein|nee|gut|super|cool|top|ähm|äh)[\s!.,?]*$/i;
+
+/** Nachsätze ohne eigenen Inhalt, die beim Diktieren entstehen. */
+const ANHANG = /^(?:die\s+)?(?:uhrzeit|zeit|genaue zeit)\s+(?:steht|ist)\s+noch\s+(?:nicht\s+fest|offen|unklar)|^(?:weiß|weiss)\s+(?:ich\s+)?noch\s+nicht/i;
+
+/** Einleitung wie "Okay, heute auf der Agenda steht ..." */
+const EINLEITUNG =
+  /^(?:(?:okay|ok|also|so|ähm|äh|gut|ja)[,!.]?\s+)*(?:(heute|morgen|übermorgen)\s+)?(?:(?:steht|stehen)\s+)?(?:auf\s+(?:der|meiner|die)\s+(?:agenda|liste|to-?do-?liste)|an|ansteht)\s+(?:(?:steht|stehen)\s+)?(?:(heute|morgen|übermorgen)\s+)?/i;
 
 /** WhatsApp (iOS): "[05.10.26, 14:32:10] Max: Text" · WhatsApp (Android): "05.10.26, 14:32 - Max: Text" */
 const WA_ZEILE = /^‎?\[?(\d{1,2})\.(\d{1,2})\.(\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::\d{2})?\]?\s*(?:-\s*)?([^:]{1,40}):\s(.*)$/;
@@ -78,32 +93,114 @@ export function erkenne(eingabe: string, jetzt = new Date()): Vorschlag[] {
     return [anfrage(absender[2], absender[1], jetzt, text)];
   }
 
-  // Ganzer Text ist eine Frage an mich → eine Anfrage, nicht zerlegen.
-  if (/\?/.test(text) && ANFRAGE.test(text) && !AUFGABE.test(text.replace(/\?.*/s, ''))) {
+  const stuecke = teile(text);
+
+  // Kurze Frage an mich ("Hey! Wollen wir Samstag jammen?") → eine Anfrage, nicht zerlegen.
+  if (stuecke.length <= 2 && text.length < 160 && /\?/.test(text) && ANFRAGE.test(text) && !AUFGABE.test(text.replace(/\?.*/s, ''))) {
     return [anfrage(text, undefined, jetzt, text)];
   }
 
-  return teile(text)
-    .filter((s) => s.length > 1 && !GRUSS.test(s))
-    .map((s) => einzeln(s, jetzt));
+  // "Heute auf der Agenda steht ..." gilt für die folgenden Aufgaben ohne eigenes Datum.
+  let kontext: string | undefined;
+  const out: Vorschlag[] = [];
+  for (const roh of stuecke) {
+    let s = roh;
+    const ein = EINLEITUNG.exec(s);
+    if (ein && (ein[1] || ein[2] || /steht|stehen|agenda|liste/i.test(ein[0]))) {
+      const wort = ein[1] ?? ein[2];
+      if (wort) kontext = alsWann(findeZeit(wort, jetzt)).wann;
+      s = s.slice(ein[0].length).trim();
+    }
+    s = s.replace(/^(?:(?:okay|ok|also|ähm|äh)[,!.]?\s+)+/i, '').trim();
+    if (s.length < 2 || GRUSS.test(s)) continue;
+
+    const v = einzeln(s, jetzt);
+    const eigenesDatum = !!findeZeit(s, jetzt).tag;
+    if (eigenesDatum) kontext = undefined;
+    else if (kontext && v.art === 'aufgabe' && !v.wann) v.wann = kontext;
+    // "... und danach Noten ausdrucken" → selber Tag wie davor
+    const davor = out[out.length - 1]?.wann;
+    if (!eigenesDatum && !v.wann && davor && v.art === 'aufgabe' && /^(?:danach|dann|anschließend|vorher|davor)(?![\p{L}])/iu.test(s)) {
+      v.wann = davor.slice(0, 10);
+    }
+    out.push(v);
+  }
+  return out;
 }
 
-/** Zerlegt Diktat oder Notizen in einzelne Gedanken: Zeilen, Sätze, Aufzählungen. */
+const STARTER = new Set([
+  'Und', 'Dann', 'Danach', 'Außerdem', 'Ausserdem', 'Zusätzlich', 'Später', 'Morgen', 'Übermorgen', 'Heute', 'Am', 'Ab', 'Bis',
+  'Um', 'Ich', 'Wir', 'Abends', 'Morgens', 'Mittags', 'Nachmittags', 'Uhrzeit', 'Einkaufen', 'Nächste', 'Nächsten', 'Nächstes',
+  'Diese', 'Diesen', 'Dieses', 'Okay', 'Also',
+]);
+const UND_FOLGE = new Set(['muss', 'müssen', 'sollte', 'dann', 'danach', 'noch', 'heute', 'morgen', 'übermorgen', 'am', 'ich', 'außerdem', 'abends', 'später']);
+const PRAEP = new Set(['am', 'bis', 'ab', 'um', 'für', 'zum', 'zur', 'an', 'in', 'auf', 'seit', 'vom', 'von', 'nächsten', 'diesen', 'kommenden', 'über', 'gegen', 'nach', 'bei', 'mit']);
+
+/** Ein Satz ohne Punkt, wie ihn das Diktat liefert, wird an typischen Satzanfängen getrennt. */
+function trenneDiktat(satz: string): string[] {
+  const woerter = satz.split(/\s+/).filter(Boolean);
+  const teile: string[][] = [[]];
+  for (let i = 0; i < woerter.length; i++) {
+    const w = woerter[i];
+    const vorher = woerter[i - 1]?.toLowerCase().replace(/[^\p{L}]/gu, '');
+    const naechstes = woerter[i + 1]?.toLowerCase();
+    const aktuell = teile[teile.length - 1];
+    if (aktuell.length && (w === 'Und' || (w === 'und' && naechstes && UND_FOLGE.has(naechstes)))) {
+      teile.push([]);
+      continue;
+    }
+    if (aktuell.length && STARTER.has(w.replace(/[,.!?]$/, '')) && vorher && !PRAEP.has(vorher)) {
+      teile.push([w]);
+      continue;
+    }
+    aktuell.push(w);
+  }
+  return teile.map((t) => t.join(' ')).filter(Boolean);
+}
+
+/** Zerlegt Diktat oder Notizen in einzelne Gedanken: Zeilen, Sätze, Aufzählungen, Satzanfänge im Diktat. */
 export function teile(text: string): string[] {
-  return text
+  const stuecke = text
     .split(/\r?\n+/)
     .map((z) => z.replace(/^\s*(?:[-*•–]|\d{1,2}[.)])\s+/u, ''))
     // Satzende, aber nicht nach Datumsangaben wie "14.3."
     .flatMap((z) => z.split(/(?<=(?<!\d)[.!?]|[!?])\s+(?=[\p{Lu}\d])/u))
-    .map((s) => s.trim())
-    .filter(Boolean);
+    .flatMap(trenneDiktat)
+    .map((s) => s.replace(/^[,;:\s]+|[,;\s]+$/g, '').trim())
+    .filter(Boolean)
+    .filter((s) => !ANHANG.test(s));
+
+  // Teile ohne eigenen Inhalt ("Ich schätze so auf 20 Uhr") gehören zum vorigen Gedanken.
+  const out: string[] = [];
+  for (const s of stuecke) {
+    const zeit = findeZeit(s);
+    if (out.length && (zeit.minuten !== undefined || zeit.tag) && !kern(s, zeit.stellen)) {
+      out[out.length - 1] += ` ${s}`;
+    } else {
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+function ohneFuell(t: string): string {
+  for (const w of FUELLWOERTER) {
+    t = t.replace(new RegExp(`(?<![\\p{L}])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}])`, 'giu'), ' ');
+  }
+  return t;
+}
+
+/** Was übrig bleibt, wenn man Zeitangaben und Füllwörter entfernt. */
+function kern(s: string, stellen: [number, number][]): string {
+  return ohneFuell(ohneStellen(s, stellen)).replace(/[^\p{L}]+/gu, ' ').trim();
 }
 
 function einzeln(satz: string, jetzt: Date): Vorschlag {
   const zeit = findeZeit(satz, jetzt);
   const { wann, ende } = alsWann(zeit);
 
-  if (GEBURTSTAG.test(satz)) {
+  // "Lena hat am 4. Mai Geburtstag", aber nicht "für meinen Geburtstag am 7. November"
+  if (GEBURTSTAG.test(satz) && !new RegExp(`${MEIN_GEBURTSTAG.source}\\s+(?:\\p{L}+\\s+)?geburtstag`, 'iu').test(satz)) {
     const g = geburtstag(satz, jetzt);
     if (g) return { art: 'geburtstag', titel: g.name, geburtstag: g, original: satz };
   }
@@ -124,18 +221,28 @@ function einzeln(satz: string, jetzt: Date): Vorschlag {
   if (EINKAUF.test(satz) && !TERMIN.test(satz)) {
     const posten = einkaufsPosten(satz);
     if (posten.length) return { art: 'einkauf', titel: posten.join(', '), posten, original: satz };
+    // "Einkaufen gehen" ohne Liste ist eine Aufgabe
+    return { art: 'aufgabe', titel: titel(satz, zeit.stellen), wann: wann?.slice(0, 10), original: satz };
   }
 
   if (/\?/.test(satz) && ANFRAGE.test(satz)) return anfrage(satz, undefined, jetzt, satz);
 
-  const t = titel(satz, zeit.stellen);
   const istAufgabe = AUFGABE.test(satz);
   const istTermin = TERMIN.test(satz);
+  const genaueZeit = zeit.minuten !== undefined && !zeit.ungefaehr;
 
-  if (wann && (istTermin || (!istAufgabe && (zeit.minuten !== undefined || zeit.tag)))) {
-    return { art: 'termin', titel: t, wann, ende, original: satz };
+  // Genaue Uhrzeit → Termin. Sonst entscheidet "muss/anrufen/planen ..." für eine Aufgabe.
+  const erinnerung = /erinner/i.test(satz);
+  if (wann && !erinnerung && (genaueZeit || (!istAufgabe && (istTermin || zeit.tag)))) {
+    const ort = /(?<![\p{L}])(?:nach|in)\s+(\p{Lu}[\p{L}-]+)/u.exec(ohneStellen(satz, zeit.stellen));
+    const stellen = [...zeit.stellen];
+    if (ort) {
+      const i = satz.indexOf(ort[0]);
+      if (i >= 0) stellen.push([i, i + ort[0].length]);
+    }
+    return { art: 'termin', titel: titel(satz, stellen), wann, ende, ort: ort?.[1], original: satz };
   }
-  if (istAufgabe) return { art: 'aufgabe', titel: t, wann: wann?.slice(0, 10), original: satz };
+  if (istAufgabe || erinnerung) return { art: 'aufgabe', titel: titel(satz, zeit.stellen), wann: wann?.slice(0, 10), original: satz };
   return { art: 'notiz', titel: satz, original: satz };
 }
 
@@ -192,8 +299,7 @@ function geburtstag(satz: string, jetzt: Date) {
 function einkaufsPosten(satz: string): string[] {
   const rest = satz
     .replace(/^.*?(einkaufsliste|einkaufen|einkauf)\s*:?/i, '')
-    .replace(W('kaufen|einkaufen|besorgen|brauchen noch|brauche noch|wir|ich|noch|bitte|müssen|muss|sollte|ist alle|sind alle|leer|beim|im|vom|bei|rewe|edeka|aldi|lidl|dm|rossmann|kaufland|netto|penny|supermarkt|drogerie'), ' ')
-    .replace(W('kaufen|einkaufen|besorgen|noch|muss|ich|wir'), ' ');
+    .replace(W('kaufen|einkaufen|besorgen|brauchen noch|brauche noch|wir|ich|noch|bitte|müssen|muss|sollte|ist alle|sind alle|leer|beim|im|vom|bei|rewe|edeka|aldi|lidl|dm|rossmann|kaufland|netto|penny|supermarkt|drogerie|gehen|gehe|geh|fahren|heute|morgen|dann|später|mal', 'giu'), ' ');
   return rest
     .split(/,|;|\s+und\s+|\s+&\s+|\n/)
     .map((p) => p.replace(/[.!?]/g, '').replace(/\s+/g, ' ').trim())
@@ -203,12 +309,14 @@ function einkaufsPosten(satz: string): string[] {
 
 function titel(satz: string, stellen: [number, number][]): string {
   let t = ohneStellen(satz, stellen);
-  for (const w of FUELLWOERTER) {
-    t = t.replace(new RegExp(`(?<![\\p{L}])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}])`, 'giu'), ' ');
-  }
+  // Nebensätze abschneiden: "Zeit für Josef finden damit wir ..." → "Zeit für Josef finden"
+  t = t.replace(/\s+(?:damit|weil|denn|sodass|so dass|obwohl|wobei)\s.*$/is, '');
+  t = ohneFuell(t);
   t = t.replace(/\s+([,.!?])/g, '$1').replace(/^[\s,.:;-]+|[\s,.:;!-]+$/g, '').replace(/\s+/g, ' ').trim();
-  // "bis die Bewerbung abschicken" → "Bewerbung abschicken"
-  t = t.replace(/^(?:(?:bis|die|der|das|den|dem|zum|zur)\s+)+/i, '');
+  // "bis die Bewerbung abschicken" → "Bewerbung abschicken", "zum Klavierunterricht" → "Klavierunterricht"
+  t = t.replace(/^(?:(?:und|an|bis|die|der|das|den|dem|zum|zur)\s+)+/i, '');
+  // "zu Juli" → "Bei Juli"
+  t = t.replace(/^zu\s+(?=\p{Lu})/u, 'Bei ');
   return gross(t || satz.trim());
 }
 
