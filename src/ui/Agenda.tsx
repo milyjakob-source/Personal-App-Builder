@@ -1,0 +1,143 @@
+import { ArrowsClockwise, Bell, X } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
+import { erinnern, kalenderImport } from '../aktionen';
+import type { Eintrag } from '../lib/agenda';
+import { lies, tagKey } from '../lib/datum';
+import { KB_KALENDER, leseKalenderExport, starteKurzbefehl } from '../lib/kurzbefehle';
+import { aendere, aktuell, useDaten } from '../store';
+import { ausZwischenablage, geh, Haken, toast } from './ui';
+
+export function EintragZeile({ e, tag, onClick }: { e: Eintrag; tag: Date; onClick?: () => void }) {
+  const strich = e.art === 'kalender' ? 'kalender' : e.art === 'job' ? 'job' : e.art === 'frist' ? 'frist' : '';
+  const inhalt = (
+    <>
+      {e.art === 'aufgabe' ? (
+        <Haken
+          an={false}
+          label="Erledigt"
+          onClick={() =>
+            aendere((d) => {
+              const a = d.aufgaben.find((x) => x.id === e.id);
+              if (a) a.erledigt = true;
+            })
+          }
+        />
+      ) : (
+        <div className="zeit-spalte">
+          {e.zeit ?? <span className="leise klein">{e.art === 'geburtstag' ? 'Geb.' : e.art === 'frist' ? 'Frist' : 'ganzt.'}</span>}
+          {e.bis && <div className="bis">{e.bis}</div>}
+        </div>
+      )}
+      {e.art !== 'aufgabe' && <span className={`strich ${strich}`} />}
+      <div className="haupt">
+        <div className="titel">{e.titel}</div>
+        {e.neben && <div className="neben">{e.neben}</div>}
+      </div>
+      {e.art === 'aufgabe' && (
+        <button
+          className="rund"
+          aria-label="Erinnerung"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            erinnern(e.titel, tagKey(tag));
+          }}
+        >
+          <Bell size={17} />
+        </button>
+      )}
+    </>
+  );
+  return onClick ? (
+    <button className="zeile" onClick={onClick}>
+      {inhalt}
+    </button>
+  ) : (
+    <div className="zeile">{inhalt}</div>
+  );
+}
+
+const WARTE = 'mili-warte-kalender';
+
+export function holeKalender() {
+  if (!aktuell().einstellungen.kurzbefehleAktiv) {
+    toast('Richte zuerst die Kurzbefehle ein');
+    geh('mehr/kurzbefehle');
+    return;
+  }
+  try {
+    sessionStorage.setItem(WARTE, '1');
+  } catch {
+    /* egal */
+  }
+  starteKurzbefehl(KB_KALENDER);
+}
+
+/** Nach dem Kurzbefehl zurück in MILI: ein Tipp übernimmt den Kalender aus der Zwischenablage. */
+export function KalenderBanner() {
+  const [zeigen, setZeigen] = useState(false);
+  useEffect(() => {
+    const pruefe = () => {
+      try {
+        setZeigen(document.visibilityState === 'visible' && sessionStorage.getItem(WARTE) === '1');
+      } catch {
+        setZeigen(false);
+      }
+    };
+    pruefe();
+    document.addEventListener('visibilitychange', pruefe);
+    return () => document.removeEventListener('visibilitychange', pruefe);
+  }, []);
+  if (!zeigen) return null;
+  const weg = () => {
+    try {
+      sessionStorage.removeItem(WARTE);
+    } catch {
+      /* egal */
+    }
+    setZeigen(false);
+  };
+  return (
+    <div className="banner">
+      <div className="haupt">Kalender ist kopiert. Jetzt übernehmen?</div>
+      <button
+        className="knopf klein"
+        onClick={async () => {
+          const t = await ausZwischenablage();
+          const termine = t ? leseKalenderExport(t) : undefined;
+          if (!termine) {
+            toast('In der Zwischenablage ist kein MILI-Kalender. Kurzbefehl prüfen.');
+            return;
+          }
+          toast(`Kalender aktualisiert: ${kalenderImport(termine)} Termine`);
+          weg();
+        }}
+      >
+        Übernehmen
+      </button>
+      <button className="rund" onClick={weg} aria-label="Schließen">
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
+export function KalenderStand() {
+  const d = useDaten();
+  const stand = d.einstellungen.kalenderStand;
+  let text = 'iCloud-Kalender noch nicht verbunden';
+  if (stand) {
+    const min = Math.round((Date.now() - lies(stand).getTime()) / 60000);
+    text = min < 2 ? 'Kalender gerade aktualisiert' : min < 60 ? `Kalender vor ${min} Min. aktualisiert` : min < 1440 ? `Kalender vor ${Math.round(min / 60)} Std. aktualisiert` : `Kalender vor ${Math.round(min / 1440)} Tagen aktualisiert`;
+  }
+  return (
+    <button className="zeile" onClick={holeKalender}>
+      <span className="icon-kachel">
+        <ArrowsClockwise size={17} />
+      </span>
+      <div className="haupt">
+        <div className="titel" style={{ fontSize: 15 }}>{text}</div>
+      </div>
+      <span className="rechts" style={{ color: 'var(--accent)' }}>Aktualisieren</span>
+    </button>
+  );
+}
