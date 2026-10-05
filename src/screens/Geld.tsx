@@ -48,7 +48,11 @@ export function Geld({ unter }: { unter?: string }) {
         }
       }
     } catch (e) {
-      toast(`Lesen fehlgeschlagen: ${e instanceof Error ? e.message : 'unbekannter Fehler'}`);
+      console.error(e);
+      toast(`Die Datei konnte nicht gelesen werden (${e instanceof Error ? e.message : 'unbekannter Fehler'}). Versuch es mit einem Screenshot.`, true);
+      setLaedt(null);
+      if (datei.current) datei.current.value = '';
+      return;
     } finally {
       setLaedt(null);
       if (datei.current) datei.current.value = '';

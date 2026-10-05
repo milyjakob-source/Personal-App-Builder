@@ -46,18 +46,20 @@ export function geh(pfad: string) {
 
 let toastText = '';
 let toastNr = 0;
+let toastFehler = false;
 const toastHoerer = new Set<() => void>();
 let toastTimer: number | undefined;
 
-export function toast(text: string) {
+export function toast(text: string, fehler = false) {
   toastText = text;
+  toastFehler = fehler;
   toastNr++;
   toastHoerer.forEach((h) => h());
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => {
     toastText = '';
     toastHoerer.forEach((h) => h());
-  }, 2600);
+  }, fehler ? 5000 : 2600);
 }
 
 export function Toast() {
@@ -70,8 +72,8 @@ export function Toast() {
   ).split('\u0000') as [string, string];
   return text ? (
     <div className="toast" role="status" key={nummer}>
-      <span className="ok">
-        <Check size={12} weight="bold" />
+      <span className={`ok${toastFehler ? ' fehler' : ''}`}>
+        {toastFehler ? <X size={12} weight="bold" /> : <Check size={12} weight="bold" />}
       </span>
       {text}
     </div>

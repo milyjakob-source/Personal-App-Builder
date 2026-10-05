@@ -631,3 +631,5 @@ input[type='date'].feld, input[type='datetime-local'].feld, input[type='time'].f
 .mini .m-name { font-size: 12px; color: var(--text-2); font-weight: 600; white-space: nowrap; }
 
 .hero .zaehler .hero-einkauf { background: #fff; color: #c46f00; display: inline-flex; align-items: center; gap: 5px; }
+
+.toast .ok.fehler { background: var(--rot); }
