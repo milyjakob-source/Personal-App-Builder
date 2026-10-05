@@ -65,6 +65,8 @@ export type Job = {
 };
 
 export type Einstellungen = {
+  /** Dein Vorname für die Begrüßung */
+  name?: string;
   /** Monatliches Netto-Einkommen in Cent, 0 = aus den Buchungen schätzen */
   einkommen: number;
   /** Wunsch-Sparquote in Prozent */

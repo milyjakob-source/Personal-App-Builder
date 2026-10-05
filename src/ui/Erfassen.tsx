@@ -7,7 +7,8 @@ import { bloecke, vorschlagFuer } from '../lib/frei';
 import { leseKalenderExport } from '../lib/kurzbefehle';
 import { euro } from '../lib/sparplan';
 import { useDaten } from '../store';
-import { ausZwischenablage, toast } from './ui';
+import type { CSSProperties } from 'react';
+import { ausZwischenablage, FARBE, toast } from './ui';
 
 const ARTEN: [Art, string][] = [
   ['termin', 'Termin'],
@@ -36,13 +37,19 @@ function spracheVerfuegbar(): (new () => SR) | undefined {
 }
 
 /** Ein Feld für alles: tippen, diktieren oder Nachrichten einfügen. MILI macht daraus Vorschläge. */
-export function Erfassen({ gross = false }: { gross?: boolean }) {
+export function Erfassen({ gross = false, orb = false, start }: { gross?: boolean; orb?: boolean; start?: 'tippen' | 'einfuegen' }) {
   const [text, setText] = useState('');
   const [vorschlaege, setVorschlaege] = useState<Vorschlag[]>([]);
   const [hoert, setHoert] = useState(false);
   const sr = useRef<SR | null>(null);
   const feld = useRef<HTMLTextAreaElement>(null);
   const Sprache = useMemo(spracheVerfuegbar, []);
+
+  useEffect(() => {
+    if (start === 'tippen') feld.current?.focus();
+    if (start === 'einfuegen') einfuegen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const f = feld.current;
@@ -81,7 +88,11 @@ export function Erfassen({ gross = false }: { gross?: boolean }) {
   }
 
   function sprechen() {
-    if (!Sprache) return;
+    if (!Sprache) {
+      feld.current?.focus();
+      toast('Jetzt auf das Mikrofon der Tastatur tippen');
+      return;
+    }
     if (hoert) {
       sr.current?.stop();
       return;
@@ -116,6 +127,15 @@ export function Erfassen({ gross = false }: { gross?: boolean }) {
   }
 
   return (
+    <>
+    {orb && (
+      <div className="orb-buehne">
+        <button className={`orb${hoert ? ' hoert' : ''}`} onClick={sprechen} aria-label={hoert ? 'Aufnahme stoppen' : 'Sprechen'}>
+          <Microphone size={52} weight="fill" />
+        </button>
+        <div className="orb-text">{hoert ? 'Ich höre zu. Nochmal tippen zum Beenden.' : 'Tippen und einfach losreden'}</div>
+      </div>
+    )}
     <div className="karte">
       <div className="erfassen">
         <textarea
@@ -133,7 +153,7 @@ export function Erfassen({ gross = false }: { gross?: boolean }) {
           aria-label="Gedanken abladen"
         />
         <div className="leiste">
-          {Sprache && (
+          {Sprache && !orb && (
             <button className={`rund mic${hoert ? ' an' : ''}`} onClick={sprechen} aria-label={hoert ? 'Aufnahme stoppen' : 'Sprechen'}>
               <Microphone size={19} weight={hoert ? 'fill' : 'regular'} />
             </button>
@@ -151,14 +171,14 @@ export function Erfassen({ gross = false }: { gross?: boolean }) {
             Einordnen
           </button>
         </div>
-        {gross && !Sprache && (
+        {gross && !Sprache && !orb && (
           <p className="leise klein" style={{ margin: '10px 2px 0' }}>
             Zum Sprechen das Mikrofon unten rechts auf der iPhone-Tastatur antippen.
           </p>
         )}
       </div>
       {vorschlaege.map((v, i) => (
-        <VorschlagKarte key={`${i}-${v.original}`} v={v} onFertig={(m) => fertig(i, m)} />
+        <VorschlagKarte key={`${i}-${v.original}`} i={i} v={v} onFertig={(m) => fertig(i, m)} />
       ))}
       {vorschlaege.length > 1 && (
         <div style={{ padding: '0 16px 16px' }}>
@@ -177,10 +197,11 @@ export function Erfassen({ gross = false }: { gross?: boolean }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 
-function VorschlagKarte({ v: start, onFertig }: { v: Vorschlag; onFertig: (meldung?: string) => void }) {
+function VorschlagKarte({ v: start, i, onFertig }: { v: Vorschlag; i: number; onFertig: (meldung?: string) => void }) {
   const [v, setV] = useState(start);
   const d = useDaten();
   const setze = (teil: Partial<Vorschlag>) => setV((alt) => ({ ...alt, ...teil }));
@@ -193,10 +214,10 @@ function VorschlagKarte({ v: start, onFertig }: { v: Vorschlag; onFertig: (meldu
   }, [v.art, v.wann, d.termine, d.job]);
 
   return (
-    <div className="vorschlag">
+    <div className="vorschlag" style={{ '--i': i } as CSSProperties}>
       <div className="chips">
         {ARTEN.map(([a, name]) => (
-          <button key={a} className={`chip${v.art === a ? ' an' : ''}`} onClick={() => setze({ art: a })}>
+          <button key={a} className={`chip${v.art === a ? ' an' : ''}`} style={{ '--farbe': FARBE[a] } as CSSProperties} onClick={() => setze({ art: a })}>
             {name}
           </button>
         ))}

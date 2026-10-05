@@ -1,11 +1,11 @@
 import { CaretLeft, CaretRight, Plus } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { anKalender, terminAnlegen } from '../aktionen';
 import { tagesEintraege } from '../lib/agenda';
 import { MONATE, plusMinuten, plusTage, tagKey, WOCHENTAGE, wochenStart, lies, zeitKey } from '../lib/datum';
 import { aendere, useDaten } from '../store';
 import type { Termin } from '../types';
-import { EintragZeile, KalenderBanner, KalenderStand } from '../ui/Agenda';
+import { EintragZeile, eintragFarbe, KalenderBanner, KalenderStand } from '../ui/Agenda';
 import { Blatt, Gruppe, Kopf, toast, useJetzt } from '../ui/ui';
 
 export function Woche() {
@@ -57,11 +57,11 @@ export function Woche() {
         </button>
       )}
 
-      {tage.map((tag) => {
+      {tage.map((tag, i) => {
         const eintraege = tagesEintraege(d, tag);
         const istHeute = tagKey(tag) === tagKey(jetzt);
         return (
-          <section key={tagKey(tag)}>
+          <section key={`${versatz}-${tagKey(tag)}`} className="rein" style={{ '--i': i } as CSSProperties}>
             <div className={`tag-kopf${istHeute ? ' heute' : ''}`}>
               <span className="nr">{tag.getDate()}</span>
               <span>{istHeute ? 'Heute' : WOCHENTAGE[tag.getDay()]}</span>
@@ -77,6 +77,7 @@ export function Woche() {
                     key={e.key}
                     e={e}
                     tag={tag}
+                    farbe={eintragFarbe(e)}
                     onClick={
                       e.art === 'termin' || e.art === 'kalender' || e.art === 'treffen'
                         ? () => setBlatt(d.termine.find((t) => t.id === e.id) ?? null)

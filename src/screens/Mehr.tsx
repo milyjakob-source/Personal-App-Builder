@@ -1,8 +1,8 @@
 import { Briefcase, Cake, GearSix, MusicNotes, ShoppingCart, ShareNetwork } from '@phosphor-icons/react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { backupDatei } from '../aktionen';
 import { naechsteFristen } from '../lib/agenda';
-import { ersetze, leer, useDaten } from '../store';
+import { aendere, ersetze, leer, useDaten } from '../store';
 import type { Daten } from '../types';
 import { geh, Gruppe, Kopf, toast, Zeile } from '../ui/ui';
 
@@ -10,37 +10,47 @@ export function Mehr() {
   const d = useDaten();
   const einkauf = d.einkauf.filter((e) => !e.erledigt).length;
   const frist = naechsteFristen(d)[0];
+  const ordner: [string, ReactNode, string, string, [string, string]][] = [
+    ['mehr/einkauf', <ShoppingCart size={22} weight="fill" />, 'Einkauf', einkauf ? `${einkauf} offen` : 'Alles da', ['#ffb340', '#ff7a1a']],
+    ['mehr/geburtstage', <Cake size={22} weight="fill" />, 'Geburtstage', d.geburtstage.length ? `${d.geburtstage.length} gespeichert` : 'Noch keine', ['#ff5c8a', '#ff375f']],
+    ['mehr/musik', <MusicNotes size={22} weight="fill" />, 'Musik & Studium', frist ? frist.titel.replace('SRH: ', '') : 'SRH Berlin, News', ['#c86bfa', '#7d5cf0']],
+    ['mehr/job', <Briefcase size={22} weight="fill" />, 'Job', d.job.aktiv ? d.job.name || 'Eingerichtet' : 'Noch nicht da', ['#6e7bff', '#4a4adf']],
+  ];
   return (
     <div className="seite">
-      <Kopf titel="Mehr" />
-      <Gruppe>
-        <div className="karte">
-          <Zeile icon={<ShoppingCart size={17} />} titel="Einkaufsliste" rechts={einkauf ? String(einkauf) : undefined} onClick={() => geh('mehr/einkauf')} pfeil />
-          <Zeile icon={<Cake size={17} />} titel="Geburtstage" rechts={d.geburtstage.length ? String(d.geburtstage.length) : undefined} onClick={() => geh('mehr/geburtstage')} pfeil />
-        </div>
-      </Gruppe>
-      <Gruppe>
-        <div className="karte">
-          <Zeile icon={<MusicNotes size={17} />} titel="Musik und Studium" neben={frist ? `Als Nächstes: ${frist.titel}` : 'SRH Berlin, News'} onClick={() => geh('mehr/musik')} pfeil />
-          <Zeile icon={<Briefcase size={17} />} titel="Job" neben={d.job.aktiv ? d.job.name || 'eingerichtet' : 'Noch nicht eingerichtet'} onClick={() => geh('mehr/job')} pfeil />
-        </div>
-      </Gruppe>
-      <Gruppe>
-        <div className="karte">
-          <Zeile icon={<ShareNetwork size={17} />} titel="Kurzbefehle" neben={d.einstellungen.kurzbefehleAktiv ? 'Kalender und Erinnerungen verbunden' : 'Kalender und Erinnerungen verbinden'} onClick={() => geh('mehr/kurzbefehle')} pfeil />
-          <Zeile icon={<GearSix size={17} />} titel="Einstellungen" neben="Farbe, Backup" onClick={() => geh('mehr/einstellungen')} pfeil />
-        </div>
-      </Gruppe>
+      <div className="rein">
+        <Kopf titel="Mehr" ueber="Alles andere" />
+      </div>
+      <div className="ordner">
+        {ordner.map(([ziel, icon, name, info, [a, b]], i) => (
+          <button key={ziel} className="rein" style={{ '--a': a, '--b': b, '--i': i + 1 } as CSSProperties} onClick={() => geh(ziel)}>
+            <span className="o-icon">{icon}</span>
+            <span>
+              <div className="o-name">{name}</div>
+              <div className="o-info">{info}</div>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="rein" style={{ '--i': 5 } as CSSProperties}>
+        <Gruppe>
+          <div className="karte">
+            <Zeile icon={<ShareNetwork size={17} weight="bold" />} farbe="var(--teal)" titel="Kurzbefehle" neben={d.einstellungen.kurzbefehleAktiv ? 'Kalender und Erinnerungen verbunden' : 'Kalender und Erinnerungen verbinden'} onClick={() => geh('mehr/kurzbefehle')} pfeil />
+            <Zeile icon={<GearSix size={17} weight="fill" />} farbe="#8e8e93" titel="Einstellungen" neben="Name, Farbe, Backup" onClick={() => geh('mehr/einstellungen')} pfeil />
+          </div>
+        </Gruppe>
+      </div>
     </div>
   );
 }
 
 const AKZENTE: [string, string, string][] = [
-  ['blau', 'Blau', '#0a6cff'],
-  ['graphit', 'Graphit', '#3a3a3c'],
-  ['gruen', 'Grün', '#24875a'],
-  ['orange', 'Orange', '#d9731a'],
-  ['rot', 'Rot', '#d23f57'],
+  ['blau', 'Blau', '#0a84ff'],
+  ['lila', 'Lila', '#bf5af2'],
+  ['pink', 'Pink', '#ff375f'],
+  ['orange', 'Orange', '#ff9f0a'],
+  ['gruen', 'Grün', '#30d158'],
+  ['indigo', 'Indigo', '#5e5ce6'],
 ];
 
 export function akzentSetzen(a: string) {
@@ -54,6 +64,7 @@ export function akzentSetzen(a: string) {
 }
 
 export function Einstellungen() {
+  const d = useDaten();
   const datei = useRef<HTMLInputElement>(null);
   const [akzent, setAkzent] = useState(() => {
     try {
@@ -85,13 +96,29 @@ export function Einstellungen() {
   return (
     <div className="seite">
       <Kopf titel="Einstellungen" zurueck="mehr" />
-      <Gruppe titel="Akzentfarbe" fuss="Hell und Dunkel richten sich nach deinem iPhone.">
+      <Gruppe titel="Wie heißt du?" fuss="Für die Begrüßung auf der Startseite.">
+        <div className="karte">
+          <label className="zeile">
+            <div className="haupt">Vorname</div>
+            <input
+              className="ohne"
+              placeholder="Name"
+              value={d.einstellungen.name ?? ''}
+              onChange={(e) => aendere((x) => { x.einstellungen.name = e.target.value; })}
+              style={{ width: 180 }}
+            />
+          </label>
+        </div>
+      </Gruppe>
+
+      <Gruppe titel="Akzentfarbe" fuss="Für Knöpfe, Mikrofon und Markierungen. Hell und Dunkel richten sich nach deinem iPhone.">
         <div className="karte innen">
           <div className="chips" style={{ flexWrap: 'wrap' }}>
             {AKZENTE.map(([k, name, farbe]) => (
               <button
                 key={k}
                 className={`chip${akzent === k ? ' an' : ''}`}
+                style={{ '--farbe': farbe } as CSSProperties}
                 onClick={() => {
                   akzentSetzen(k);
                   setAkzent(k);

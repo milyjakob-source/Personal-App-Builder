@@ -5,15 +5,18 @@ import type { Eintrag } from '../lib/agenda';
 import { lies, tagKey } from '../lib/datum';
 import { KB_KALENDER, leseKalenderExport, starteKurzbefehl } from '../lib/kurzbefehle';
 import { aendere, aktuell, useDaten } from '../store';
-import { ausZwischenablage, geh, Haken, toast } from './ui';
+import { ausZwischenablage, FARBE, farbStil, geh, Haken, Icon, toast } from './ui';
 
-export function EintragZeile({ e, tag, onClick }: { e: Eintrag; tag: Date; onClick?: () => void }) {
-  const strich = e.art === 'kalender' ? 'kalender' : e.art === 'job' ? 'job' : e.art === 'frist' ? 'frist' : '';
+export const eintragFarbe = (e: Eintrag) =>
+  e.art === 'kalender' ? FARBE.kalender : e.art === 'job' ? FARBE.job : e.art === 'frist' ? FARBE.frist : e.art === 'geburtstag' ? FARBE.geburtstag : e.art === 'aufgabe' ? FARBE.aufgabe : e.art === 'treffen' ? FARBE.treffen : FARBE.termin;
+
+export function EintragZeile({ e, tag, onClick, farbe }: { e: Eintrag; tag: Date; onClick?: () => void; farbe?: string }) {
   const inhalt = (
     <>
       {e.art === 'aufgabe' ? (
         <Haken
           an={false}
+          farbe={farbe}
           label="Erledigt"
           onClick={() =>
             aendere((d) => {
@@ -28,7 +31,7 @@ export function EintragZeile({ e, tag, onClick }: { e: Eintrag; tag: Date; onCli
           {e.bis && <div className="bis">{e.bis}</div>}
         </div>
       )}
-      {e.art !== 'aufgabe' && <span className={`strich ${strich}`} />}
+      {e.art !== 'aufgabe' && <span className="strich" style={farbStil(farbe)} />}
       <div className="haupt">
         <div className="titel">{e.titel}</div>
         {e.neben && <div className="neben">{e.neben}</div>}
@@ -131,9 +134,9 @@ export function KalenderStand() {
   }
   return (
     <button className="zeile" onClick={holeKalender}>
-      <span className="icon-kachel">
-        <ArrowsClockwise size={17} />
-      </span>
+      <Icon farbe="var(--teal)">
+        <ArrowsClockwise size={17} weight="bold" />
+      </Icon>
       <div className="haupt">
         <div className="titel" style={{ fontSize: 15 }}>{text}</div>
       </div>

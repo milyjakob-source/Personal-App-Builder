@@ -1,5 +1,20 @@
 import { CaretLeft, CaretRight, FilePlus, Trash } from '@phosphor-icons/react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
+
+const KAT_FARBE: Record<string, string> = {
+  Lebensmittel: 'var(--gruen)',
+  'Essen & Trinken': 'var(--orange)',
+  Drogerie: 'var(--pink)',
+  Wohnen: 'var(--indigo)',
+  Abos: 'var(--lila)',
+  'Musik & Equipment': 'var(--rot)',
+  Mobilität: 'var(--blau)',
+  Shopping: 'var(--gelb)',
+  Freizeit: 'var(--teal)',
+  Gesundheit: 'var(--mint)',
+  Bildung: 'var(--indigo)',
+  Sparen: 'var(--gruen)',
+};
 import { buchungenImport, kategorieLernen } from '../aktionen';
 import { leseAuszug, mitKategorie, type RohBuchung } from '../lib/bank';
 import { kurzesDatum, lies, monatName, tagKey, tagName } from '../lib/datum';
@@ -117,24 +132,15 @@ function Uebersicht({ onImport, onText }: { onImport: () => void; onText: () => 
         </button>
       </div>
 
-      <Gruppe>
-        <div className="karte">
-          <div style={{ padding: '18px 16px 14px' }}>
-            <div className="leise klein">Ausgaben</div>
-            <div className="gross-zahl">{euro(bild.ausgaben)}</div>
-          </div>
-          <div className="zahlen" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-            <div>
-              <div className="wert plus">{euro(bild.einnahmen)}</div>
-              <div className="was">Einnahmen</div>
-            </div>
-            <div>
-              <div className={`wert ${bild.einnahmen - bild.ausgaben >= 0 ? 'plus' : 'minus'}`}>{euro(bild.einnahmen - bild.ausgaben)}</div>
-              <div className="was">Bilanz</div>
-            </div>
-          </div>
+      <div className="hero" style={{ '--h1': '#34c759', '--h2': '#00a3a3', '--h3': '#0a84ff' } as CSSProperties}>
+        <div className="klein-titel">Ausgegeben</div>
+        <div className="gross-zahl" style={{ marginTop: 4 }}>{euro(bild.ausgaben)}</div>
+        <div className="zaehler">
+          <span>+ {euro(bild.einnahmen)} rein</span>
+          <span>Bilanz {euro(bild.einnahmen - bild.ausgaben)}</span>
         </div>
-      </Gruppe>
+      </div>
+      <div style={{ height: 14 }} />
 
       <Gruppe titel="Wofür">
         <div className="karte">
@@ -145,7 +151,7 @@ function Uebersicht({ onImport, onText }: { onImport: () => void; onText: () => 
                   <span>{k.name}</span>
                   <span className="leise" style={{ fontVariantNumeric: 'tabular-nums' }}>{euro(k.summe)}</span>
                 </div>
-                <div className="balken" style={{ width: `${Math.max(2, (k.summe / max) * 100)}%` }} />
+                <div className="balken" style={{ width: `${Math.max(2, (k.summe / max) * 100)}%`, '--farbe': KAT_FARBE[k.name] ?? 'var(--accent)' } as CSSProperties} />
               </div>
             </button>
           ))}
@@ -256,20 +262,17 @@ function SparplanAnsicht() {
 
   return (
     <>
-      <Gruppe>
-        <div className="karte">
-          <div style={{ padding: '18px 16px 14px' }}>
-            <div className="leise klein">Spielraum für Alltag pro Woche</div>
-            <div className="gross-zahl">{euro(p.proWoche)}</div>
-            <div className="leise klein">{euro(Math.max(0, p.spielraum))} im Monat für Essen, Ausgehen, Shopping und Co.</div>
-          </div>
-          <div className="zahlen">
-            <div><div className="wert">{euro(p.fixkosten)}</div><div className="was">Fixkosten</div></div>
-            <div><div className="wert">{euro(p.ruecklagenSumme)}</div><div className="was">Rücklagen</div></div>
-            <div><div className="wert plus">{euro(p.sparziel)}</div><div className="was">Sparen</div></div>
-          </div>
+      <div className="hero" style={{ '--h1': '#5e5ce6', '--h2': '#bf5af2', '--h3': '#ff375f' } as CSSProperties}>
+        <div className="klein-titel">Spielraum pro Woche</div>
+        <div className="gross-zahl" style={{ marginTop: 4 }}>{euro(p.proWoche)}</div>
+        <div className="wann">{euro(Math.max(0, p.spielraum))} im Monat für Essen, Ausgehen, Shopping und Co.</div>
+        <div className="zaehler">
+          <span>Fix {euro(p.fixkosten)}</span>
+          <span>Rücklagen {euro(p.ruecklagenSumme)}</span>
+          <span>Sparen {euro(p.sparziel)}</span>
         </div>
-      </Gruppe>
+      </div>
+      <div style={{ height: 14 }} />
 
       {p.hinweise.length > 0 && (
         <Gruppe titel="Hinweise">
